@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watcher/watcher.dart';
 
 import '../config.dart';
+import '../widgets/cabecalho.dart' show bytesTexto;
 import 'armazenamento.dart';
 import 'notificacoes.dart';
 import 'sistema.dart';
@@ -233,12 +234,34 @@ class Controle extends ChangeNotifier {
             raizId: pr['raiz_id'] as int?,
             nome: (pr['nome'] as String?) ?? '',
             pausado: pausado || (arm.pref<List>('pares_pausados', const [])).contains(pr['id']),
+            envio: pr['modo'] == 'envio',
+            soNuvem: {for (final x in (pr['so_nuvem'] as List?) ?? const []) if (x is int) x},
           ),
       ];
 
+  /// Pasta de envio (tudo sobe e sai do computador) ou espelho (iguais nos
+  /// dois sentidos), e as subpastas que ficam só na nuvem neste computador.
+  Future<String?> salvarOpcoesPar(int id, {required bool envio, required Set<int> soNuvem}) async {
+    try {
+      await api!.atualizarPar(id, {'modo': envio ? 'envio' : 'espelho', 'so_nuvem': soNuvem.toList()});
+      await _recarregarPares();
+      _sinc?.marcarSujo(id);
+      notifyListeners();
+      sincronizarAgora();
+      return null;
+    } on ApiErro catch (e) {
+      return e.mensagem;
+    }
+  }
+
+  /// Quanto há na nuvem (dentro de uma pasta, ou o par inteiro), pela árvore que
+  /// o aplicativo já conhece — para avisar quanto vai descer.
+  ({int arquivos, int bytes}) tamanhoNaNuvem(int par, {int? pastaId}) =>
+      _sinc?.tamanhoNaNuvem(par, pastaId: pastaId) ?? (arquivos: 0, bytes: 0);
+
   /// Cria um par: pasta do computador → destino na nuvem.
   /// `destino`: null = "Meu Drive, numa pasta com o mesmo nome".
-  Future<String?> adicionarPar(String pastaLocal, {int? espacoId, int? pastaId, bool mesmoNome = false}) async {
+  Future<String?> adicionarPar(String pastaLocal, {int? espacoId, int? pastaId, bool mesmoNome = false, bool envio = false}) async {
     final recusa = motivoPastaRecusada(pastaLocal, [for (final pr in pares) pr['caminho_local'] as String]);
     if (recusa != null && recusa != 'rede') return recusa;
     try {
@@ -255,7 +278,7 @@ class Controle extends ChangeNotifier {
           raiz = (criada['pasta'] as Map)['id'] as int;
         }
       }
-      await api!.criarPar(espacoId: esp, raizId: raiz, caminhoLocal: pastaLocal, nome: p.basename(pastaLocal));
+      await api!.criarPar(espacoId: esp, raizId: raiz, caminhoLocal: pastaLocal, nome: p.basename(pastaLocal), modo: envio ? 'envio' : 'espelho');
       await _recarregarPares();
       sincronizarAgora();
       return null;
@@ -421,6 +444,10 @@ class Controle extends ChangeNotifier {
     if (!notificar) return;
     final env = r.fold(0, (s, x) => s + x.enviados), bai = r.fold(0, (s, x) => s + x.baixados);
     final conf = r.fold(0, (s, x) => s + x.conflitos);
+    final lib = r.fold(0, (s, x) => s + x.liberados), libBytes = r.fold(0, (s, x) => s + x.bytesLiberados);
+    if (!janelaVisivel && lib > 0) {
+      await notif.mostrar('Espaço liberado', '$lib arquivo(s) estão só na nuvem agora — ${bytesTexto(libBytes)} a menos neste computador.');
+    }
     if (!janelaVisivel && env + bai > 0) {
       await notif.mostrar('NN Cloud', 'Sincronização concluída: ${env + bai} arquivo(s) atualizado(s).');
     }
@@ -468,7 +495,7 @@ class Controle extends ChangeNotifier {
       case 'progresso':
         bytesCiclo += e.tamanho ?? 0;
         arquivoAtual = e.caminho;
-      case 'enviado' || 'baixado' || 'conflito' || 'erro' || 'pausado':
+      case 'enviado' || 'baixado' || 'conflito' || 'erro' || 'pausado' || 'liberado':
         if (e.tipo == 'enviado' || e.tipo == 'baixado') arquivosCiclo++;
         atividade.insert(0, LinhaAtividade(e.tipo, e.caminho ?? '', par: e.par, tamanho: e.tamanho, detalhe: e.detalhe));
         if (atividade.length > 300) atividade.removeLast();

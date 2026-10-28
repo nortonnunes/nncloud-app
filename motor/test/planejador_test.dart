@@ -18,7 +18,7 @@ Map<String, ItemNuvem> nuvem(List<ItemNuvem> l) {
 }
 
 Future<Plano> plano(List<ItemNuvem> n, List<ItemLocal> l, List<ItemBase> b,
-    {Map<String, String> imps = const {}, bool juncao = false, bool editar = true}) {
+    {Map<String, String> imps = const {}, bool juncao = false, bool editar = true, bool Function(String)? soNuvem}) {
   return planejar(
     nuvem: nuvem(n),
     local: {for (final x in l) x.caminho: x},
@@ -26,6 +26,7 @@ Future<Plano> plano(List<ItemNuvem> n, List<ItemLocal> l, List<ItemBase> b,
     impressaoLocal: (c) async => imps[c],
     juncaoSegura: juncao,
     podeEditar: editar,
+    soNuvem: soNuvem,
   );
 }
 
@@ -35,6 +36,11 @@ void main() {
   group('arquivos', () {
     test('nada mudou: plano vazio', () async {
       expect((await plano([nf(1, 'a.txt')], [lf('a.txt')], [bf('a.txt', 1)])).vazio, isTrue);
+    });
+    test('só a data mudou no PC (conteúdo igual): só a base, sem reenviar', () async {
+      final p = await plano([nf(1, 'a.txt')], [lf('a.txt', mt: 5000)], [bf('a.txt', 1)], imps: {'a.txt': 'i1-v1'});
+      expect(txt(p), ['SoBase(a.txt)']);
+      expect(p.de<SoBase>().single.base.mtimeMs, 5000);
     });
     test('só mudou no PC: envia com a versão de base', () async {
       final p = await plano([nf(1, 'a.txt')], [lf('a.txt', mt: 2000)], [bf('a.txt', 1)]);
@@ -159,6 +165,47 @@ void main() {
     test('pasta e arquivo com o mesmo nome: problema, nada é apagado', () async {
       final p = await plano([np(1, 'X')], [lf('X')], []);
       expect(txt(p), ['Problema(X: existe uma pasta e um arquivo com este nome)']);
+    });
+  });
+
+  group('só na nuvem (pasta de envio e sincronização seletiva)', () {
+    bool tudo(String _) => true;
+    bool arquivo(String c) => c == 'Arquivo' || c.startsWith('Arquivo/');
+
+    test('fora do computador: não desce', () async {
+      expect((await plano([nf(1, 'a.txt')], [], [], soNuvem: tudo)).vazio, isTrue);
+    });
+    test('fora do computador e com base (já liberado): só tira a base, NUNCA apaga na nuvem', () async {
+      expect(txt(await plano([nf(1, 'a.txt')], [], [bf('a.txt', 1)], soNuvem: tudo)), ['RemoverBase(a.txt)']);
+    });
+    test('mudou na nuvem, fora do computador: continua só na nuvem', () async {
+      expect(txt(await plano([nf(1, 'a.txt', versao: 3)], [], [bf('a.txt', 1)], soNuvem: tudo)), ['RemoverBase(a.txt)']);
+    });
+    test('arquivo novo no computador: sobe normalmente', () async {
+      expect(txt(await plano([], [lf('novo.pdf')], [], soNuvem: tudo)), ['EnviarNovo(novo.pdf)']);
+    });
+    test('mesmo nome, conteúdo diferente: a versão do PC sobe como conflito e a da nuvem NÃO desce', () async {
+      final p = await plano([nf(1, 'a.txt', tam: 20, imp: 'X')], [lf('a.txt', tam: 20)], [], imps: {'a.txt': 'Y'}, soNuvem: tudo);
+      expect(p.de<Conflito>().single.baixar, isFalse);
+    });
+    test('fora da área só na nuvem: regras de sempre (baixa e apaga)', () async {
+      expect(txt(await plano([nf(1, 'b.txt')], [], [], soNuvem: arquivo)), ['Baixar(b.txt)']);
+      expect(txt(await plano([nf(1, 'b.txt')], [], [bf('b.txt', 1)], soNuvem: arquivo)), ['LixeiraNuvem(b.txt)']);
+    });
+    test('pasta seletiva: nem a pasta nem o conteúdo descem', () async {
+      final p = await plano([np(1, 'Arquivo'), nf(2, 'x.pdf', pai: 1), np(3, 'Sub', pai: 1), nf(4, 'y.pdf', pai: 3)], [], [], soNuvem: arquivo);
+      expect(p.vazio, isTrue);
+    });
+    test('pasta normal apagada no PC com pasta só na nuvem dentro: NÃO vai para a lixeira, é recriada', () async {
+      bool sel(String c) => c == 'Proj/Antigo' || c.startsWith('Proj/Antigo/');
+      final p = await plano([np(1, 'Proj'), np(2, 'Antigo', pai: 1), nf(3, 'velho.pdf', pai: 2)], [], [bp('Proj', 1)], soNuvem: sel);
+      expect(p.de<LixeiraNuvem>(), isEmpty);
+      expect(txt(p), contains('CriarPastaLocal(Proj)'));
+    });
+    test('pasta de envio apagada no PC: a nuvem fica', () async {
+      final p = await plano([np(1, 'Notas'), nf(2, 'n.pdf', pai: 1)], [], [bp('Notas', 1), bf('Notas/n.pdf', 2)], soNuvem: tudo);
+      expect(p.de<LixeiraNuvem>(), isEmpty);
+      expect(p.exclusoesLocais, 0);
     });
   });
 }

@@ -29,7 +29,11 @@ class Pc {
         api = Api(Platform.environment['NCL_API'] ?? 'http://127.0.0.1:8782', token: token) {
     novoSincronizador();
   }
-  void novoSincronizador() => s = Sincronizador(api: api, dados: dados, computador: nome, aoEvento: eventos.add);
+  void novoSincronizador({Duration idade = Duration.zero}) =>
+      s = Sincronizador(api: api, dados: dados, computador: nome, aoEvento: eventos.add, idadeMinimaLiberar: idade);
+  /// Troca o modo do par (pasta de envio / subpastas só na nuvem), como o app faz.
+  void modo({bool envio = false, Set<int> soNuvem = const {}}) =>
+      par = ConfigPar(id: par.id, raiz: par.raiz, espacoId: par.espacoId, raizId: par.raizId, nome: par.nome, envio: envio, soNuvem: soNuvem);
   /// Nos testes o "observador" é o próprio teste: marca a pasta antes do ciclo.
   Future<ResultadoPar> ciclo({bool observador = true}) async {
     if (observador) s.marcarSujo(par.id);
@@ -252,13 +256,92 @@ void main() {
     expect((await pc1.ciclo()).enviados, 1, reason: 'volta e envia');
   });
 
+  test('pasta de envio: o que está igual na nuvem sai do computador; nada é apagado lá', () async {
+    // Os ignorados (.DS_Store) nunca sobem — e por isso nunca saem.
+    bool conta(File f) => !f.path.contains('.nncloud') && p.basename(f.path) != '.DS_Store';
+    final antes = pc1.raiz.listSync(recursive: true).whereType<File>().where(conta).length;
+    expect(antes, greaterThan(3));
+    pc1.modo(envio: true);
+    final r = await pc1.ciclo();
+    expect(r.estado, 'ok', reason: r.mensagem);
+    expect(r.liberados, antes, reason: r.problemas.join('; '));
+    expect(r.enviados + r.excluidos, 0);
+    expect(pc1.raiz.listSync(recursive: true).whereType<File>().where(conta), isEmpty);
+    expect(r.soNaNuvem, antes);
+    // A nuvem continua inteira: o PC 2 não perde nada.
+    final r2 = await pc2.ciclo();
+    expect(r2.excluidos, 0);
+    expect(pc2.f('Planilhas 2026/grande.xlsx').existsSync(), isTrue);
+    // Ciclo seguinte: nada desce, nada vai para a lixeira.
+    final again = await pc1.ciclo();
+    expect(again.baixados + again.excluidos + again.liberados, 0);
+  });
+
+  test('pasta de envio: arquivo novo sobe e sai; o recente espera', () async {
+    pc1.escrever('Scanner/nota-001.pdf', bytes(3000, 41), quando: DateTime.now().subtract(const Duration(minutes: 20)));
+    final r = await pc1.ciclo();
+    expect([r.enviados, r.liberados], [1, 1], reason: r.problemas.join('; '));
+    expect(pc1.f('Scanner/nota-001.pdf').existsSync(), isFalse);
+    expect(Directory(p.join(pc1.raiz.path, 'Scanner')).existsSync(), isTrue, reason: 'a estrutura da pasta de envio fica');
+    await pc2.ciclo();
+    expect(pc2.f('Scanner/nota-001.pdf').readAsBytesSync(), bytes(3000, 41));
+    // Gravado agora (pode estar sendo escrito): sobe, mas espera para sair.
+    pc1.novoSincronizador(idade: const Duration(minutes: 5));
+    pc1.escrever('Scanner/nota-002.pdf', bytes(2000, 42));
+    final r3 = await pc1.ciclo();
+    expect([r3.enviados, r3.liberados, r3.aguardandoLiberar], [1, 0, 1]);
+    expect(pc1.f('Scanner/nota-002.pdf').existsSync(), isTrue);
+    pc1.novoSincronizador();
+    pc1.f('Scanner/nota-002.pdf').setLastModifiedSync(DateTime.now().subtract(const Duration(minutes: 10)));
+    final r4 = await pc1.ciclo();
+    // A data mudou: o arquivo é igual, a base é refeita sem reenviar, e sai.
+    expect(r4.enviados, 0);
+    expect(pc1.f('Scanner/nota-002.pdf').existsSync(), isFalse, reason: '${r4.liberados} ${r4.aguardandoLiberar} ${r4.problemas}');
+  });
+
+  test('de volta ao espelho: tudo desce de novo', () async {
+    final sn = (await pc1.ciclo()).soNaNuvem;
+    pc1.modo();
+    final r = await pc1.ciclo();
+    expect(r.estado, 'ok', reason: r.mensagem);
+    expect(r.baixados, sn, reason: r.problemas.join('; '));
+    expect(pc1.f('Planilhas 2026/grande.xlsx').readAsBytesSync(), bytes(9 * 1024 * 1024 + 77, 2));
+    expect(pc1.f('Scanner/nota-001.pdf').readAsBytesSync(), bytes(3000, 41));
+  });
+
+  test('sincronização seletiva: a pasta escolhida sai do computador e não desce mais', () async {
+    final arv = await pc1.api.arvore(pc1.par.id, 0);
+    final contratos = (arv['itens'] as List).cast<Map<String, dynamic>>().firstWhere((i) => i['nome'] == 'Contratos' && i['tipo'] == 'pasta');
+    // O servidor guarda a escolha (e a devolve na lista de pares).
+    await pc1.api.atualizarPar(pc1.par.id, {'so_nuvem': [contratos['id'], 999999]});
+    final pares = await pc1.api.pares();
+    expect(pares.firstWhere((x) => x['id'] == pc1.par.id)['so_nuvem'], [contratos['id']], reason: 'id inexistente é descartado');
+    pc1.modo(soNuvem: {contratos['id'] as int});
+    final r = await pc1.ciclo();
+    expect(r.estado, 'ok', reason: r.mensagem);
+    expect(Directory(p.join(pc1.raiz.path, 'Contratos')).existsSync(), isFalse, reason: 'a pasta inteira sai');
+    expect(pc1.f('Planilhas 2026/grande.xlsx').existsSync(), isTrue, reason: 'o resto fica');
+    // Mudou na nuvem (pelo PC 2): continua só na nuvem no PC 1.
+    pc2.escrever('Contratos/2026/aditivo.pdf', bytes(1500, 43));
+    await pc2.ciclo();
+    final r2 = await pc1.ciclo();
+    expect(r2.baixados, 0);
+    expect(Directory(p.join(pc1.raiz.path, 'Contratos')).existsSync(), isFalse);
+    // Desmarcar traz a pasta de volta.
+    await pc1.api.atualizarPar(pc1.par.id, {'so_nuvem': <int>[]});
+    pc1.modo();
+    final r3 = await pc1.ciclo();
+    expect(r3.baixados, greaterThanOrEqualTo(2));
+    expect(pc1.f('Contratos/2026/aditivo.pdf').readAsBytesSync(), bytes(1500, 43));
+  });
+
   test('histórico e base replicados no servidor', () async {
     final acoes = <dynamic>{};
     for (final pc in [pc1, pc2]) {   // o histórico é de CADA computador
       final h = await pc.api.pedir('GET', 'historico', query: {'limite': '500'}) as Map;
       acoes.addAll((h['linhas'] as List).map((l) => (l as Map)['acao']));
     }
-    expect(acoes, containsAll(['enviado', 'baixado', 'conflito', 'renomeado', 'excluido_nuvem']));
+    expect(acoes, containsAll(['enviado', 'baixado', 'conflito', 'renomeado', 'excluido_nuvem', 'liberado']));
     final b = await pc1.api.baseDoPar(pc1.par.id, 0);
     expect((b['itens'] as List).isNotEmpty, isTrue);
   });

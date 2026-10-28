@@ -23,6 +23,13 @@
 //     o que foi apagado no PC é baixado de novo;
 //   - nome que o Windows não aceita: PROBLEMA, o arquivo fica só no computador.
 // A trava de EXCLUSÃO EM MASSA fica no motor, que conta as exclusões do plano.
+//
+// SÓ NA NUVEM (`soNuvem`: a pasta de envio inteira, ou as subpastas que a
+// pessoa tirou do computador): o que NÃO está no computador fica como está —
+// nunca é baixado e, principalmente, a ausência dele no disco NUNCA vira
+// exclusão na nuvem. O que está no computador segue as regras de sempre (sobe,
+// atualiza); quem o tira do disco depois é o motor (`liberar`), só com a
+// nuvem confirmada.
 import 'modelos.dart';
 import 'nomes.dart';
 
@@ -118,7 +125,10 @@ class Conflito extends Acao {
   @override
   final String caminho;
   final ItemNuvem item;
-  Conflito(this.caminho, this.item);
+  /// false = só na nuvem: a versão do PC sobe com o nome de conflito e a da
+  /// nuvem NÃO desce.
+  final bool baixar;
+  Conflito(this.caminho, this.item, {this.baixar = true});
   @override
   int get ordem => 3;
   @override
@@ -206,7 +216,9 @@ Future<Plano> planejar({
   required Future<String?> Function(String caminho) impressaoLocal,
   bool juncaoSegura = false,
   bool podeEditar = true,
+  bool Function(String caminho)? soNuvem,
 }) async {
+  bool sn(String c) => soNuvem != null && soNuvem(c);
   final acoes = <Acao>[];
   // Cópias de trabalho por caminho EXATO (os movimentos as reescrevem).
   final n = Map<String, ItemNuvem>.of(nuvem);
@@ -356,12 +368,23 @@ Future<Plano> planejar({
       decisao[k] = Problema(x.caminho, 'existe uma pasta e um arquivo com este nome');
       continue;
     }
+    if (li == null && sn(x.caminho)) {
+      // Só na nuvem e fora do computador: nada desce e nada é apagado.
+      if (be != null) decisao[k] = RemoverBase(x.pB!);
+      continue;
+    }
     final lc = li != null && (be == null || li.tamanho != be.tamanho || li.mtimeMs != be.mtimeMs);
     final cc = cn != null && (be == null || cn.id != be.itemId || cn.versao != be.versao);
 
     if (li != null && cn != null) {
       if (!lc && !cc) continue;
       if (lc && !cc) {
+        // Só a data mudou (programa que "toca" o arquivo ao abrir): o conteúdo é
+        // o mesmo da base — refaz a base, sem reenviar.
+        if (be != null && li.tamanho == be.tamanho && be.impressao != null && await impressaoLocal(x.pL!) == be.impressao) {
+          decisao[k] = SoBase(x.pL!, baseDe(x.pL!, cn, li, be.impressao));
+          continue;
+        }
         final inv = invalido(x.pL!);
         decisao[k] = !podeEditar
             ? Problema(x.pL!, 'a pasta na nuvem é só de leitura — a alteração ficou só no computador')
@@ -382,7 +405,7 @@ Future<Plano> planejar({
           continue;
         }
       }
-      decisao[k] = !podeEditar ? Baixar(x.pL!, cn, be) : Conflito(x.pL!, cn);
+      decisao[k] = !podeEditar ? Baixar(x.pL!, cn, be) : Conflito(x.pL!, cn, baixar: !sn(x.pL!));
       continue;
     }
     if (li != null && cn == null) {
@@ -420,7 +443,14 @@ Future<Plano> planejar({
       decisao[k] = Problema(x.caminho, 'existe uma pasta e um arquivo com este nome');
       continue;
     }
+    if (li == null && sn(x.caminho)) {
+      if (be != null) decisao[k] = RemoverBase(x.pB!);
+      continue;
+    }
     bool soFilhos(bool Function(Acao) ok) => decisao.entries.where((d) => dentroDe(d.key, k)).every((d) => ok(d.value));
+    // Pasta com algo SÓ NA NUVEM dentro: apagá-la no PC não a apaga na nuvem —
+    // a pessoa não via aquele conteúdo no computador. A pasta volta a ser criada.
+    bool temSoNuvemDentro() => n.keys.any((cn) => dentroDe(chaveCaminho(cn), k) && sn(cn));
     if (li != null && cn != null) {
       if (be == null) decisao[k] = SoBase(x.pL!, ItemBase(caminho: x.pL!, itemId: cn.id, tipo: Tipo.pasta));
       continue;
@@ -440,7 +470,7 @@ Future<Plano> planejar({
       continue;
     }
     if (li == null && cn != null) {
-      if (be != null && !juncaoSegura && podeEditar && soFilhos((a) => a is LixeiraNuvem || a is RemoverBase)) {
+      if (be != null && !juncaoSegura && podeEditar && soFilhos((a) => a is LixeiraNuvem || a is RemoverBase) && !temSoNuvemDentro()) {
         decisao[k] = LixeiraNuvem(x.pC!, cn.id, Tipo.pasta);
       } else {
         decisao[k] = CriarPastaLocal(x.pC!, cn.id);

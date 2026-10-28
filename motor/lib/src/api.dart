@@ -106,8 +106,10 @@ class Api {
   // ---------- Pares ----------
   Future<List<Map<String, dynamic>>> pares() async =>
       ((await _m('GET', 'sincronizacoes'))['pares'] as List).cast<Map<String, dynamic>>();
-  Future<Map<String, dynamic>> criarPar({required int espacoId, int? raizId, required String caminhoLocal, required String nome}) async =>
-      ((await _m('POST', 'sincronizacoes', corpo: {'espaco_id': espacoId, 'raiz_id': raizId, 'caminho_local': caminhoLocal, 'nome': nome}))['par'] as Map)
+  Future<Map<String, dynamic>> criarPar({required int espacoId, int? raizId, required String caminhoLocal, required String nome,
+          String modo = 'espelho'}) async =>
+      ((await _m('POST', 'sincronizacoes', corpo: {'espaco_id': espacoId, 'raiz_id': raizId, 'caminho_local': caminhoLocal, 'nome': nome,
+              if (modo != 'espelho') 'modo': modo}))['par'] as Map)
           .cast<String, dynamic>();
   Future<void> atualizarPar(int par, Map<String, dynamic> d) => _m('POST', 'sincronizacoes/$par', corpo: d);
   Future<void> removerPar(int par) => _m('DELETE', 'sincronizacoes/$par');

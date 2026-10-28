@@ -18,7 +18,9 @@ class TelaPastas extends StatelessWidget {
         FilledButton.icon(onPressed: () => _adicionar(context), icon: const Icon(Icons.add), label: const Text('Adicionar pasta')),
       ]),
       const SizedBox(height: 6),
-      Text('Cada pasta do computador fica igual a uma pasta do NN Cloud, nos dois sentidos.', style: TextStyle(color: Cores.fraco(context))),
+      Text('Cada pasta do computador fica igual a uma pasta do NN Cloud, nos dois sentidos — ou funciona como pasta de envio, '
+          'que manda tudo para a nuvem e libera o espaço. Em Opções dá para deixar subpastas só na nuvem.',
+          style: TextStyle(color: Cores.fraco(context))),
       const SizedBox(height: 20),
       if (c.pares.isEmpty)
         Card(
@@ -52,6 +54,8 @@ class TelaPastas extends StatelessWidget {
                 _ => ('Parada', 'erro'),
               };
     final ultimo = pr['ultimo_sync_em'] as String?;
+    final envio = pr['modo'] == 'envio';
+    final seletivas = ((pr['so_nuvem'] as List?) ?? const []).length;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -66,7 +70,16 @@ class TelaPastas extends StatelessWidget {
           _linha(context, Icons.computer, pr['caminho_local'] as String),
           _linha(context, Icons.cloud_outlined, pr['raiz_nome'] as String? ?? 'Meu Drive'),
           _linha(context, Icons.description_outlined,
-              '${NumberFormat.decimalPattern('pt_BR').format(pr['arquivos'] ?? 0)} arquivo(s)${ultimo != null ? ' · sincronizada em ${ultimo.substring(8, 10)}/${ultimo.substring(5, 7)} às ${ultimo.substring(11, 16)}' : ''}'),
+              '${NumberFormat.decimalPattern('pt_BR').format(pr['arquivos'] ?? 0)} arquivo(s) neste computador${ultimo != null ? ' · sincronizada em ${ultimo.substring(8, 10)}/${ultimo.substring(5, 7)} às ${ultimo.substring(11, 16)}' : ''}'),
+          if (envio)
+            _linha(context, Icons.outbox_outlined, 'Pasta de envio: o que entra sobe para a nuvem e sai deste computador')
+          else if (seletivas > 0)
+            _linha(context, Icons.cloud_queue, '$seletivas subpasta(s) só na nuvem'),
+          if ((r?.soNaNuvem ?? 0) > 0)
+            _linha(context, Icons.cloud_done_outlined,
+                '${NumberFormat.decimalPattern('pt_BR').format(r!.soNaNuvem)} arquivo(s) só na nuvem (${bytesTexto(r.bytesSoNaNuvem)}) — não ocupam espaço aqui'),
+          if ((r?.aguardandoLiberar ?? 0) > 0)
+            _linha(context, Icons.hourglass_bottom, '${r!.aguardandoLiberar} arquivo(s) alterado(s) há pouco: saem do computador em alguns minutos'),
           if (r?.mensagem != null && r!.estado != 'ok') ...[
             const SizedBox(height: 8),
             Text(r.mensagem!, style: TextStyle(color: Cores.situacao(context, 'erro'))),
@@ -74,6 +87,11 @@ class TelaPastas extends StatelessWidget {
           const SizedBox(height: 12),
           Wrap(spacing: 8, children: [
             OutlinedButton.icon(onPressed: () => c.abrirPasta(pr['caminho_local'] as String), icon: const Icon(Icons.folder_open), label: const Text('Abrir pasta')),
+            OutlinedButton.icon(
+              onPressed: () => showDialog<void>(context: context, builder: (_) => DialogoOpcoes(c, pr)),
+              icon: const Icon(Icons.tune),
+              label: const Text('Opções'),
+            ),
             OutlinedButton.icon(
               onPressed: () => c.pausarPar(id, !pausadoPar),
               icon: Icon(pausadoPar ? Icons.play_arrow : Icons.pause),
@@ -136,6 +154,7 @@ class _DialogoDestino extends StatefulWidget {
 
 class _DialogoDestinoState extends State<_DialogoDestino> {
   bool mesmoNome = true;
+  bool envio = false;
   List<Map<String, dynamic>> espacos = [];
   Map<String, dynamic>? espaco;
   final List<Map<String, dynamic>> trilha = [];   // pastas abertas
@@ -181,8 +200,9 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
       erro = null;
     });
     final e = mesmoNome
-        ? await widget.c.adicionarPar(widget.pasta, mesmoNome: true)
-        : await widget.c.adicionarPar(widget.pasta, espacoId: espaco?['id'] as int?, pastaId: trilha.isEmpty ? null : trilha.last['id'] as int);
+        ? await widget.c.adicionarPar(widget.pasta, mesmoNome: true, envio: envio)
+        : await widget.c.adicionarPar(widget.pasta,
+            espacoId: espaco?['id'] as int?, pastaId: trilha.isEmpty ? null : trilha.last['id'] as int, envio: envio);
     if (!mounted) return;
     if (e == null) {
       Navigator.pop(context);
@@ -264,12 +284,246 @@ class _DialogoDestinoState extends State<_DialogoDestino> {
             Text('A sincronização vai usar: ${trilha.isEmpty ? (espaco?['nome'] ?? '') : trilha.last['nome']}',
                 style: const TextStyle(fontWeight: FontWeight.w600)),
           ],
+          const Divider(height: 24),
+          SwitchListTile(
+            value: envio,
+            onChanged: (v) => setState(() => envio = v),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Pasta de envio (libera espaço)'),
+            subtitle: const Text('O que entra na pasta sobe para a nuvem e sai deste computador depois de confirmado. '
+                'Nada desce da nuvem. Ideal para scanner, backup e arquivo morto.'),
+          ),
           if (erro != null) ...[const SizedBox(height: 10), Text(erro!, style: TextStyle(color: Cores.situacao(context, 'erro')))],
         ]),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
         FilledButton(onPressed: podeSalvar ? _salvar : null, child: Text(salvando ? 'Adicionando…' : 'Sincronizar')),
+      ],
+    );
+  }
+}
+
+/// Opções de uma pasta sincronizada: espelho ou pasta de envio, e as subpastas
+/// que ficam SÓ NA NUVEM neste computador (sincronização seletiva).
+///
+/// Marcado = fica no computador. Desmarcar uma pasta tira do computador ela e
+/// tudo dentro (as subpastas aparecem desabilitadas). Antes de salvar, a tela
+/// diz o que vai acontecer — principalmente quanto vai DESCER.
+class DialogoOpcoes extends StatefulWidget {
+  final Controle c;
+  final Map<String, dynamic> par;
+  const DialogoOpcoes(this.c, this.par, {super.key});
+  @override
+  State<DialogoOpcoes> createState() => _DialogoOpcoesState();
+}
+
+class _No {
+  final int id;
+  final String nome;
+  final int nivel;
+  List<_No>? filhos;   // null = ainda não carregado
+  bool aberto = false, carregando = false;
+  _No(this.id, this.nome, this.nivel);
+}
+
+class _DialogoOpcoesState extends State<DialogoOpcoes> {
+  late bool envio;
+  late Set<int> soNuvem;
+  late final bool envioAntes;
+  late final Set<int> soNuvemAntes;
+  List<_No>? raiz;
+  bool salvando = false;
+  String? erro;
+
+  int get par => widget.par['id'] as int;
+
+  @override
+  void initState() {
+    super.initState();
+    envio = envioAntes = widget.par['modo'] == 'envio';
+    soNuvemAntes = {for (final x in (widget.par['so_nuvem'] as List?) ?? const []) if (x is int) x};
+    soNuvem = {...soNuvemAntes};
+    _carregar(null);
+  }
+
+  Future<List<_No>> _pastas(int? pastaId, int nivel) async {
+    final r = pastaId == null
+        ? (widget.par['raiz_id'] == null
+            ? await widget.c.api!.pastas(espacoId: widget.par['espaco_id'] as int)
+            : await widget.c.api!.pastas(pastaId: widget.par['raiz_id'] as int))
+        : await widget.c.api!.pastas(pastaId: pastaId);
+    return [for (final x in (r['pastas'] as List).cast<Map<String, dynamic>>()) _No(x['id'] as int, x['nome'] as String, nivel)];
+  }
+
+  Future<void> _carregar(_No? no) async {
+    try {
+      if (no == null) {
+        final l = await _pastas(null, 0);
+        if (mounted) setState(() => raiz = l);
+      } else {
+        setState(() => no.carregando = true);
+        no.filhos = await _pastas(no.id, no.nivel + 1);
+        if (mounted) setState(() => no.carregando = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => erro = '$e');
+    }
+  }
+
+  List<Widget> _arvore(List<_No> nos, bool paiFora) => [
+        for (final n in nos) ...[
+          Padding(
+            padding: EdgeInsets.only(left: n.nivel * 22.0),
+            child: Row(children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(n.aberto ? Icons.expand_more : Icons.chevron_right, size: 20),
+                tooltip: n.aberto ? 'Fechar' : 'Ver subpastas',
+                onPressed: () {
+                  setState(() => n.aberto = !n.aberto);
+                  if (n.aberto && n.filhos == null) _carregar(n);
+                },
+              ),
+              Checkbox(
+                value: !paiFora && !soNuvem.contains(n.id),
+                onChanged: paiFora
+                    ? null
+                    : (v) => setState(() => v == true ? soNuvem.remove(n.id) : soNuvem.add(n.id)),
+              ),
+              Icon(Icons.folder_outlined, size: 18, color: Cores.fraco(context)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(n.nome, overflow: TextOverflow.ellipsis)),
+              if (paiFora || soNuvem.contains(n.id))
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Text('só na nuvem', style: TextStyle(color: Cores.fraco(context), fontSize: 12)),
+                ),
+            ]),
+          ),
+          if (n.aberto && n.carregando)
+            Padding(padding: EdgeInsets.only(left: n.nivel * 22.0 + 52, bottom: 6), child: const LinearProgressIndicator()),
+          if (n.aberto && n.filhos != null) ..._arvore(n.filhos!, paiFora || soNuvem.contains(n.id)),
+        ],
+      ];
+
+  /// O que vai acontecer ao salvar, em frases.
+  List<String> _efeitos() {
+    final out = <String>[];
+    if (envio && !envioAntes) {
+      out.add('Tudo o que já está igual na nuvem sai deste computador e fica só na nuvem (acessível pelo NN Cloud no navegador). '
+          'Arquivos alterados nos últimos 5 minutos esperam um pouco.');
+      return out;
+    }
+    if (!envio && envioAntes) {
+      final t = widget.c.tamanhoNaNuvem(par);
+      out.add('Vai baixar de volta o que está só na nuvem: até ${t.arquivos} arquivo(s), ${bytesTexto(t.bytes)}. Confira se há espaço no disco.');
+      return out;
+    }
+    if (envio) return out;
+    final voltam = soNuvemAntes.difference(soNuvem);
+    if (voltam.isNotEmpty) {
+      var n = 0, b = 0;
+      for (final id in voltam) {
+        final t = widget.c.tamanhoNaNuvem(par, pastaId: id);
+        n += t.arquivos;
+        b += t.bytes;
+      }
+      out.add('${voltam.length} pasta(s) voltam para o computador: vão descer $n arquivo(s), ${bytesTexto(b)}.');
+    }
+    final saem = soNuvem.difference(soNuvemAntes);
+    if (saem.isNotEmpty) {
+      out.add('${saem.length} pasta(s) saem do computador e ficam só na nuvem. Só sai o que já está igual na nuvem; '
+          'o que foi alterado aqui sobe antes.');
+    }
+    return out;
+  }
+
+  Future<void> _salvar() async {
+    setState(() {
+      salvando = true;
+      erro = null;
+    });
+    final e = await widget.c.salvarOpcoesPar(par, envio: envio, soNuvem: envio ? soNuvemAntes : soNuvem);
+    if (!mounted) return;
+    if (e == null) {
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        salvando = false;
+        erro = e;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final efeitos = _efeitos();
+    final mudou = envio != envioAntes || (!envio && (soNuvem.length != soNuvemAntes.length || !soNuvem.containsAll(soNuvemAntes)));
+    return AlertDialog(
+      title: Text('Opções de "${(widget.par['nome'] as String?)?.isNotEmpty == true ? widget.par['nome'] : 'Pasta'}"'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            RadioGroup<bool>(
+              groupValue: envio,
+              onChanged: (v) => setState(() => envio = v ?? false),
+              child: const Column(children: [
+                RadioListTile<bool>(
+                  value: false,
+                  title: Text('Espelho'),
+                  subtitle: Text('O computador e a nuvem ficam iguais, nos dois sentidos.'),
+                ),
+                RadioListTile<bool>(
+                  value: true,
+                  title: Text('Pasta de envio (libera espaço)'),
+                  subtitle: Text('O que entra na pasta sobe para a nuvem e sai deste computador. Nada desce da nuvem.'),
+                ),
+              ]),
+            ),
+            if (!envio) ...[
+              const Divider(height: 24),
+              Text('Pastas neste computador', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 4),
+              Text('Desmarque o que pode ficar só na nuvem. Os arquivos continuam no NN Cloud e voltam ao marcar de novo.',
+                  style: TextStyle(color: Cores.fraco(context))),
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 260, minHeight: 80),
+                decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(10)),
+                child: raiz == null
+                    ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))
+                    : raiz!.isEmpty
+                        ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text('Esta pasta não tem subpastas na nuvem.', style: TextStyle(color: Cores.fraco(context)))))
+                        : ListView(shrinkWrap: true, padding: const EdgeInsets.symmetric(vertical: 4), children: _arvore(raiz!, false)),
+              ),
+            ],
+            if (mudou && efeitos.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  for (final f in efeitos)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Icon(Icons.info_outline, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(f)),
+                      ]),
+                    ),
+                ]),
+              ),
+            ],
+            if (erro != null) ...[const SizedBox(height: 10), Text(erro!, style: TextStyle(color: Cores.situacao(context, 'erro')))],
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(onPressed: !mudou || salvando ? null : _salvar, child: Text(salvando ? 'Salvando…' : 'Salvar')),
       ],
     );
   }

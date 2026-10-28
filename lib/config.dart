@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// Configuração do aplicativo NN Cloud (as mesmas cores do app NN Conecta).
 class AppConfig {
   static const String nome = 'NN Cloud';
-  static const String versao = '1.0.0';
+  static const String versao = '1.1.0';
 
   /// API do NN Conecta (pode ser trocada em Configurações → Avançado).
   static const String apiPadrao = 'https://api.nortonnunes.com.br';

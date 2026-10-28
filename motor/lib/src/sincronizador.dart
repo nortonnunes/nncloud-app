@@ -5,8 +5,16 @@
 //   3. atualiza a árvore da nuvem: listagem inicial paginada ou UMA consulta
 //      de mudanças para todos os pares;
 //   4. varre a pasta local; 5. planeja; 6. freia a EXCLUSÃO EM MASSA;
-//   7. executa (até 3 transferências ao mesmo tempo); 8. grava o diário,
-//      replica a base e o histórico no servidor, atualiza a situação do par.
+//   7. executa (até 3 transferências ao mesmo tempo); 8. LIBERA o espaço do que
+//      é só na nuvem; 9. grava o diário, replica a base e o histórico no
+//      servidor, atualiza a situação do par.
+//
+// SÓ NA NUVEM (pasta de envio, ou subpastas tiradas do computador): o arquivo
+// sai do disco só quando TUDO confere — a nuvem tem a mesma versão da base, o
+// arquivo local tem o mesmo tamanho e a mesma data da base, e não foi mexido
+// nos últimos `idadeMinimaLiberar` (pode estar sendo gravado). A base dele sai
+// e o diário é gravado ANTES de apagar: se o processo morrer entre um e outro,
+// o arquivo continua no disco e é reconhecido como igual no ciclo seguinte.
 //
 // ⚠️ A base de cada arquivo só muda DEPOIS do efeito confirmado no disco e no
 // servidor. Um ciclo interrompido no meio (energia, kill) recomeça do diário:
@@ -38,7 +46,13 @@ class ConfigPar {
   final int? raizId;          // pasta da nuvem (null = o espaço inteiro)
   final String nome;
   bool pausado;
-  ConfigPar({required this.id, required this.raiz, required this.espacoId, this.raizId, this.nome = '', this.pausado = false});
+  /// Pasta de envio: tudo sobe e sai do computador; nada desce.
+  final bool envio;
+  /// Pastas da nuvem (ids) que ficam só na nuvem neste computador.
+  final Set<int> soNuvem;
+  ConfigPar({required this.id, required this.raiz, required this.espacoId, this.raizId, this.nome = '', this.pausado = false,
+      this.envio = false, Set<int>? soNuvem})
+      : soNuvem = soNuvem ?? const {};
 }
 
 /// Exclusões que passam do limite e esperam a pessoa confirmar.
@@ -65,6 +79,12 @@ class ResultadoPar {
   String estado = 'ok';          // ok, pausado, erro, aguardando_confirmacao, offline
   String? mensagem;
   int enviados = 0, baixados = 0, conflitos = 0, excluidos = 0, erros = 0, pendentes = 0;
+  /// Liberados do computador neste ciclo (e quanto ocupavam).
+  int liberados = 0, bytesLiberados = 0;
+  /// Esperando para sair do computador (alterados há pouco).
+  int aguardandoLiberar = 0;
+  /// Arquivos que estão só na nuvem (não ocupam espaço neste computador).
+  int soNaNuvem = 0, bytesSoNaNuvem = 0;
   final List<String> problemas = [];
   ExclusaoEmMassa? exclusao;
   ResultadoPar(this.par);
@@ -82,6 +102,8 @@ class Sincronizador {
   /// Exclusões em massa já confirmadas pela pessoa (par → até quando vale).
   final Map<int, DateTime> confirmadas = {};
   final int paralelo;
+  /// Arquivo alterado há menos que isto não sai do computador (pode estar sendo gravado).
+  final Duration idadeMinimaLiberar;
 
   /// Varredura completa no máximo a cada [intervaloVarredura] quando nada
   /// avisou (o observador de arquivos marca o par como "sujo").
@@ -104,7 +126,48 @@ class Sincronizador {
     this.limiteFracao = 0.25,
     this.paralelo = 3,
     this.intervaloVarredura = const Duration(minutes: 10),
+    this.idadeMinimaLiberar = const Duration(minutes: 5),
   }) : ignorados = ignorados ?? Ignorados();
+
+  /// O que é "só na nuvem" neste par: tudo (pasta de envio) ou o que está
+  /// dentro das pastas escolhidas — pelo id, então renomear a pasta na nuvem não
+  /// a faz descer.
+  bool Function(String) soNuvemDe(ConfigPar c, Diario d) {
+    if (c.envio) return (_) => true;
+    if (c.soNuvem.isEmpty) return (_) => false;
+    final pastas = <String>[
+      for (final id in c.soNuvem)
+        if (d.nuvem.itens[id]?.tipo == Tipo.pasta)
+          if (d.nuvem.caminhoDe(id) case final cam? when cam.isNotEmpty) chaveCaminho(cam),
+    ];
+    if (pastas.isEmpty) return (_) => false;
+    return (cam) {
+      final k = chaveCaminho(cam);
+      return pastas.any((pz) => k == pz || k.startsWith('$pz/'));
+    };
+  }
+
+  /// Quantos arquivos (e quanto ocupam) há na nuvem dentro de uma pasta do par
+  /// (null = o par inteiro), pela árvore que o aplicativo já conhece. Serve para
+  /// avisar quanto vai descer antes de trazer algo de volta ao computador.
+  ({int arquivos, int bytes}) tamanhoNaNuvem(int par, {int? pastaId}) {
+    final d = _diarios[par];
+    if (d == null) return (arquivos: 0, bytes: 0);
+    final todos = d.nuvem.porCaminho();
+    String? base;
+    if (pastaId != null) {
+      base = d.nuvem.caminhoDe(pastaId);
+      if (base == null) return (arquivos: 0, bytes: 0);
+    }
+    var n = 0, b = 0;
+    for (final e in todos.entries) {
+      if (e.value.tipo != Tipo.arquivo) continue;
+      if (base != null && !dentroDe(e.key, base)) continue;
+      n++;
+      b += e.value.tamanho ?? 0;
+    }
+    return (arquivos: n, bytes: b);
+  }
 
   /// O observador viu algo mudar nesta pasta: varre no próximo ciclo.
   void marcarSujo(int par) => _sujos.add(par);
@@ -178,7 +241,8 @@ class Sincronizador {
       _nuvemMudou.remove(c.id);
       try {
         await _cicloPar(c, r);
-        if (r.estado == 'ok' && r.erros == 0 && r.pendentes == 0) _ultimaVarredura[c.id] = DateTime.now();
+        // Arquivo esperando para sair do computador: varre de novo no próximo ciclo.
+        if (r.estado == 'ok' && r.erros == 0 && r.pendentes == 0 && r.aguardandoLiberar == 0) _ultimaVarredura[c.id] = DateTime.now();
       } on ApiErro catch (e) {
         r.estado = e.desconectado ? 'erro' : (e.transitorio ? 'offline' : 'erro');
         r.mensagem = e.mensagem;
@@ -363,6 +427,7 @@ class Sincronizador {
     }
 
     final podeEditar = true;   // o servidor recusa o que não puder; o estado da raiz vem nas mudanças
+    final soNuvem = soNuvemDe(c, d);
     var plano = await planejar(
       nuvem: nuvem,
       local: v.itens,
@@ -370,6 +435,7 @@ class Sincronizador {
       impressaoLocal: impressaoLocal,
       juncaoSegura: d.juncaoSegura,
       podeEditar: podeEditar,
+      soNuvem: soNuvem,
     );
 
     // ---------- Freio da exclusão em massa ----------
@@ -389,10 +455,97 @@ class Sincronizador {
     final ex = _Execucao(this, c, d, v, r, real);
     await ex.executar(plano);
 
+    final liberados = _liberar(c, d, v, r, soNuvem, real);
+
+    // Quanto está só na nuvem (para a tela): o que a nuvem tem e o disco não.
+    final noDisco = {for (final k in v.itens.keys) chaveCaminho(k)}..removeAll(liberados);
+    for (final e in d.nuvem.porCaminho().entries) {
+      if (e.value.tipo != Tipo.arquivo || !soNuvem(e.key) || noDisco.contains(chaveCaminho(e.key))) continue;
+      r.soNaNuvem++;
+      r.bytesSoNaNuvem += e.value.tamanho ?? 0;
+    }
+
     r.pendentes = r.problemas.length;
     if (r.erros == 0 && r.estado == 'ok') {
       d.juncaoSegura = false;   // um ciclo limpo: as exclusões voltam a valer
     }
+  }
+
+  // =====================================================================
+  // Liberar espaço (só na nuvem)
+  // =====================================================================
+
+  /// Tira do computador o que é só na nuvem e JÁ está igual na nuvem.
+  /// Devolve as chaves dos caminhos liberados.
+  Set<String> _liberar(ConfigPar c, Diario d, ResultadoVarredura v, ResultadoPar r, bool Function(String) soNuvem,
+      String Function(String) real) {
+    final liberados = <String>{};
+    // Diário perdido: só depois de um ciclo limpo (a base ainda não é confiável).
+    if (d.juncaoSegura || (!c.envio && c.soNuvem.isEmpty)) return liberados;
+    final agora = DateTime.now();
+    final candidatos = <(ItemBase, File, int)>[];
+    for (final b in d.base.values.toList()) {
+      if (b.tipo != Tipo.arquivo || !soNuvem(b.caminho)) continue;
+      final it = d.nuvem.itens[b.itemId];
+      if (it == null || it.versao != b.versao) continue;   // a nuvem ainda não tem esta versão
+      final f = File(real(b.caminho));
+      final FileStat st;
+      try {
+        st = f.statSync();
+      } on FileSystemException {
+        continue;
+      }
+      if (st.type != FileSystemEntityType.file) continue;
+      if (st.size != b.tamanho || st.modified.millisecondsSinceEpoch != b.mtimeMs) continue;   // mudou: sobe antes
+      if (agora.difference(st.modified) < idadeMinimaLiberar) {
+        r.aguardandoLiberar++;
+        continue;
+      }
+      candidatos.add((b, f, st.size));
+    }
+    if (candidatos.isNotEmpty) {
+      // ⚠️ A base sai e o diário é gravado ANTES de apagar o arquivo.
+      for (final (b, _, _) in candidatos) {
+        d.tirarBase(b.caminho);
+        d.impressoes.remove(b.caminho);
+      }
+      _salvar(c.id);
+      for (final (b, f, tam) in candidatos) {
+        try {
+          f.deleteSync();
+          liberados.add(chaveCaminho(b.caminho));
+          r.liberados++;
+          r.bytesLiberados += tam;
+          historico(c.id, 'liberado', b.caminho, itemId: b.itemId, tamanho: tam, detalhe: 'só na nuvem — saiu deste computador');
+          _ev(Evento('liberado', par: c.id, caminho: b.caminho, tamanho: tam));
+        } on FileSystemException {
+          // Em uso (Windows): fica no disco; no próximo ciclo é reconhecido como igual e sai depois.
+        }
+      }
+    }
+    // Sincronização seletiva: as pastas que ficaram vazias saem também (na pasta
+    // de envio a estrutura fica — é onde a pessoa solta os arquivos).
+    if (!c.envio) {
+      const lixo = {'.ds_store', 'thumbs.db', 'desktop.ini'};
+      final pastas = v.itens.values.where((i) => i.tipo == Tipo.pasta && soNuvem(i.caminho)).map((i) => i.caminho).toList()
+        ..sort((a, b) => '/'.allMatches(b).length.compareTo('/'.allMatches(a).length));
+      for (final rel in pastas) {
+        final dir = Directory(real(rel));
+        try {
+          final dentro = dir.listSync(followLinks: false);
+          if (dentro.any((e) => e is! File || !lixo.contains(p.basename(e.path).toLowerCase()))) continue;
+          for (final e in dentro) {
+            e.deleteSync();
+          }
+          dir.deleteSync();
+          d.tirarBase(rel);
+          liberados.add(chaveCaminho(rel));
+        } on FileSystemException {
+          // em uso ou sem permissão: fica
+        }
+      }
+    }
+    return liberados;
   }
 
   // =====================================================================
@@ -553,7 +706,7 @@ class _Execucao {
         case Baixar():
           await _baixar(a.caminho, a.item, a.esperado);
         case Conflito():
-          await _conflito(a.caminho, a.item);
+          await _conflito(a.caminho, a.item, baixar: a.baixar);
         case SoBase():
           d.porBase(a.base);
         case RemoverBase():
@@ -779,7 +932,7 @@ class _Execucao {
 
   /// Os dois lados mudaram: a versão do PC vira "nome (conflito de PC data)"
   /// (sobe como arquivo novo) e a da nuvem fica com o nome.
-  Future<void> _conflito(String rel, ItemNuvem item) async {
+  Future<void> _conflito(String rel, ItemNuvem item, {bool baixar = true}) async {
     final f = File(_abs(rel));
     if (f.existsSync()) {
       var nome = nomeConflito(nomeDe(rel), s.computador, DateTime.now());
@@ -796,7 +949,7 @@ class _Execucao {
       s._ev(Evento('conflito', par: c.id, caminho: novo));
       await _enviar(novo, null, null);
     }
-    await _baixar(rel, item, null);
+    if (baixar) await _baixar(rel, item, null);
   }
 
   // ---------- movimentos ----------

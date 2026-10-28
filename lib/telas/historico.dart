@@ -24,6 +24,7 @@ const _acoes = {
   'excluido_local': 'Apagados no computador',
   'excluido_nuvem': 'Apagados na nuvem',
   'conflito': 'Conflitos',
+  'liberado': 'Liberados (só na nuvem)',
   'erro': 'Erros',
 };
 
@@ -149,6 +150,7 @@ IconData _icone(String a) => switch (a) {
       'renomeado' || 'movido' => Icons.drive_file_move_outline,
       'excluido_local' || 'excluido_nuvem' => Icons.delete_outline,
       'conflito' => Icons.call_split,
+      'liberado' => Icons.cloud_done_outlined,
       'erro' => Icons.error_outline,
       _ => Icons.history,
     };

@@ -209,6 +209,7 @@ IconData _icone(String t) => switch (t) {
       'enviado' => Icons.cloud_upload_outlined,
       'baixado' => Icons.cloud_download_outlined,
       'conflito' => Icons.call_split,
+      'liberado' => Icons.cloud_done_outlined,
       'erro' => Icons.error_outline,
       _ => Icons.info_outline,
     };
@@ -217,6 +218,7 @@ String _rotulo(String t) => switch (t) {
       'enviado' => 'Enviado',
       'baixado' => 'Baixado',
       'conflito' => 'Conflito: as duas versões foram guardadas',
+      'liberado' => 'Só na nuvem: saiu deste computador',
       'erro' => 'Erro',
       'pausado' => 'Pasta parada',
       _ => t,

@@ -33,6 +33,12 @@ Esta pasta não vai para o servidor: o aplicativo chega às pessoas pelo instala
   | Mudança × exclusão | A mudança vence |
   | Movido ou renomeado | Detectado (pelo id na nuvem; por tamanho + impressão no computador) e refeito do outro lado, sem transferir de novo |
 
+- **Liberar espaço** (botão **Opções** de cada pasta):
+  - **Pasta de envio**: o que entra na pasta sobe e sai do computador depois de confirmado na nuvem (e sem
+    alteração há 5 minutos). Nada desce; apagar no computador não apaga na nuvem. Para scanner, backup, arquivo morto.
+  - **Sincronização seletiva**: desmarque as subpastas que podem ficar só na nuvem. Saem do computador; marcar de
+    novo faz descer (a tela avisa quanto antes de salvar).
+  - Só sai do disco o que está igual na nuvem; a base é gravada antes de apagar.
 - **Proteções contra perda de dados**:
   - um marcador `.nncloud` na raiz: pasta sumida ou disco desconectado **para** a sincronização, nunca apaga nada;
   - diário local perdido (app reinstalado): **junção segura**, sem exclusão em lado nenhum até um ciclo limpo;
