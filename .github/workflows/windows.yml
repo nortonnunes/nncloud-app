@@ -1,0 +1,41 @@
+# Gera o instalador do NN Cloud para Windows numa máquina Windows do GitHub.
+# Aba "Actions" do repositório → "Instalador Windows" → "Run workflow".
+# O .exe sai em "Artifacts", no fim da execução.
+#
+# É o mesmo scripts/empacotar-windows.ps1 de um PC comum — aqui só se instalam
+# antes o Flutter e o Inno Setup (o Visual Studio com C++ já vem na máquina).
+name: Instalador Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+
+      - name: Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Dependências e testes do motor
+        run: |
+          flutter pub get
+          cd motor
+          dart pub get
+          dart test
+
+      - name: Gerar o instalador
+        run: powershell -ExecutionPolicy Bypass -File scripts\empacotar-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NN-Cloud-Windows
+          path: build/instaladores/*.exe
+          if-no-files-found: error

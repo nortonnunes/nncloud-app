@@ -1,0 +1,300 @@
+{
+    "nomes": [
+        {
+            "nome": "relatório.pdf",
+            "nfc": "relatório.pdf",
+            "valido": true,
+            "ext": "pdf",
+            "chave": "relatório.pdf"
+        },
+        {
+            "nome": "relatório.pdf",
+            "nfc": "relatório.pdf",
+            "valido": true,
+            "ext": "pdf",
+            "chave": "relatório.pdf"
+        },
+        {
+            "nome": "Ação Ç.txt",
+            "nfc": "Ação Ç.txt",
+            "valido": true,
+            "ext": "txt",
+            "chave": "ação ç.txt"
+        },
+        {
+            "nome": "Àgua",
+            "nfc": "Àgua",
+            "valido": true,
+            "ext": "",
+            "chave": "àgua"
+        },
+        {
+            "nome": "한국어.txt",
+            "nfc": "한국어.txt",
+            "valido": true,
+            "ext": "txt",
+            "chave": "한국어.txt"
+        },
+        {
+            "nome": "각",
+            "nfc": "각",
+            "valido": true,
+            "ext": "",
+            "chave": "각"
+        },
+        {
+            "nome": "ﬁle.txt",
+            "nfc": "ﬁle.txt",
+            "valido": true,
+            "ext": "txt",
+            "chave": "ﬁle.txt"
+        },
+        {
+            "nome": "Å",
+            "nfc": "Å",
+            "valido": true,
+            "ext": "",
+            "chave": "å"
+        },
+        {
+            "nome": "ȩ́",
+            "nfc": "ȩ́",
+            "valido": true,
+            "ext": "",
+            "chave": "ȩ́"
+        },
+        {
+            "nome": "com1.txt",
+            "nfc": "com1.txt",
+            "valido": false,
+            "ext": "txt",
+            "chave": "com1.txt"
+        },
+        {
+            "nome": "CON",
+            "nfc": "CON",
+            "valido": false,
+            "ext": "",
+            "chave": "con"
+        },
+        {
+            "nome": "lpt9.tar.gz",
+            "nfc": "lpt9.tar.gz",
+            "valido": false,
+            "ext": "gz",
+            "chave": "lpt9.tar.gz"
+        },
+        {
+            "nome": "a:b",
+            "nfc": "a:b",
+            "valido": false,
+            "ext": "",
+            "chave": "a:b"
+        },
+        {
+            "nome": "fim.",
+            "nfc": "fim.",
+            "valido": false,
+            "ext": "",
+            "chave": "fim."
+        },
+        {
+            "nome": "fim ",
+            "nfc": "fim ",
+            "valido": false,
+            "ext": "",
+            "chave": "fim "
+        },
+        {
+            "nome": ".",
+            "nfc": ".",
+            "valido": false,
+            "ext": "",
+            "chave": "."
+        },
+        {
+            "nome": "..",
+            "nfc": "..",
+            "valido": false,
+            "ext": "",
+            "chave": ".."
+        },
+        {
+            "nome": "",
+            "nfc": "",
+            "valido": false,
+            "ext": "",
+            "chave": ""
+        },
+        {
+            "nome": "tab\tx",
+            "nfc": "tab\tx",
+            "valido": false,
+            "ext": "",
+            "chave": "tab\tx"
+        },
+        {
+            "nome": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+            "nfc": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+            "valido": false,
+            "ext": "",
+            "chave": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+        },
+        {
+            "nome": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "nfc": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "valido": true,
+            "ext": "",
+            "chave": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+            "nome": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "nfc": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "valido": false,
+            "ext": "",
+            "chave": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+            "nome": "ok.TXT",
+            "nfc": "ok.TXT",
+            "valido": true,
+            "ext": "txt",
+            "chave": "ok.txt"
+        },
+        {
+            "nome": "arquivo.tar.GZ",
+            "nfc": "arquivo.tar.GZ",
+            "valido": true,
+            "ext": "gz",
+            "chave": "arquivo.tar.gz"
+        },
+        {
+            "nome": ".bashrc",
+            "nfc": ".bashrc",
+            "valido": true,
+            "ext": "",
+            "chave": ".bashrc"
+        },
+        {
+            "nome": "sem_ext",
+            "nfc": "sem_ext",
+            "valido": true,
+            "ext": "",
+            "chave": "sem_ext"
+        },
+        {
+            "nome": "x.yyyyyyyyyyyyyyyyyyyyy",
+            "nfc": "x.yyyyyyyyyyyyyyyyyyyyy",
+            "valido": true,
+            "ext": "",
+            "chave": "x.yyyyyyyyyyyyyyyyyyyyy"
+        },
+        {
+            "nome": "Zürich ß",
+            "nfc": "Zürich ß",
+            "valido": true,
+            "ext": "",
+            "chave": "zürich ß"
+        },
+        {
+            "nome": "İstanbul",
+            "nfc": "İstanbul",
+            "valido": true,
+            "ext": "",
+            "chave": "i̇stanbul"
+        },
+        {
+            "nome": "ΣΊΣΥΦΟΣ",
+            "nfc": "ΣΊΣΥΦΟΣ",
+            "valido": true,
+            "ext": "",
+            "chave": "σίσυφος"
+        }
+    ],
+    "conflitos": [
+        {
+            "nome": "Relatório final.pdf",
+            "pc": "NOTEBOOK-ANA",
+            "quando": "2026-10-28 14h30",
+            "resultado": "Relatório final (conflito de NOTEBOOK-ANA 2026-10-28 14h30).pdf"
+        },
+        {
+            "nome": "sem extensão",
+            "pc": "PC: 1\/2",
+            "quando": "2026-10-28 14h30",
+            "resultado": "sem extensão (conflito de PC_ 1_2 2026-10-28 14h30)"
+        },
+        {
+            "nome": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.docx",
+            "pc": "MAC",
+            "quando": "2026-10-28 14h30",
+            "resultado": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (conflito de MAC 2026-10-28 14h30).docx"
+        },
+        {
+            "nome": "a.b.c",
+            "pc": "",
+            "quando": "2026-10-28 14h30",
+            "resultado": "a.b (conflito de outro computador 2026-10-28 14h30).c"
+        },
+        {
+            "nome": "planilha.XLSX",
+            "pc": "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
+            "quando": "2026-10-28 14h30",
+            "resultado": "planilha (conflito de ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ 2026-10-28 14h30).xlsx"
+        }
+    ],
+    "impressoes": [
+        {
+            "tamanho": 0,
+            "partes": [
+                "47DEQpj8HBSa+\/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            ],
+            "hex": "5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456"
+        },
+        {
+            "tamanho": 1,
+            "partes": [
+                "bjQLnP+zepicpUTmu3gKLHiQHT+zNzh2hRGjBhevoB0="
+            ],
+            "hex": "1406e05881e299367766d313e26c05564ec91bf721d31726bd6e46e60689539a"
+        },
+        {
+            "tamanho": 1000,
+            "partes": [
+                "WUJeRBLilvx0c2ZzzgZwJ\/OEID9ZwNLD5r57EzR7P\/w="
+            ],
+            "hex": "e10f234e22157087f06d028fa2e2b22ea0b15f78e7973d47c1edf153d064570c"
+        },
+        {
+            "tamanho": 8388607,
+            "partes": [
+                "noF76HmwYkRjqUpvokJj6GkNt\/jH89zrr8PUbrybr8g="
+            ],
+            "hex": "11e0af9c6cb637929c946483ad2d7f6b07c8d84bb5878a189800103ab821311b"
+        },
+        {
+            "tamanho": 8388608,
+            "partes": [
+                "4BhXW7Chy5px\/3oNRur0rPRVTmB3c3AEkPFGO4PJ1+4="
+            ],
+            "hex": "9df5b3a777f6ebde3a9cb8bc965226327f3f125708f149d55e6e5e90f9465291"
+        },
+        {
+            "tamanho": 8388609,
+            "partes": [
+                "4BhXW7Chy5px\/3oNRur0rPRVTmB3c3AEkPFGO4PJ1+4=",
+                "OAkYuUalJmQKQN9dztZRZ5Tz2Xu9nmu1U9A3xEOfMcM="
+            ],
+            "hex": "35fc4c9653f21ee2f5a39cc1a3195c4d0bbf3ca6d947c9ab02a577cd957d19b0"
+        },
+        {
+            "tamanho": 16777221,
+            "partes": [
+                "4BhXW7Chy5px\/3oNRur0rPRVTmB3c3AEkPFGO4PJ1+4=",
+                "FKqYcZstpV5UuTIfIYrFqpl5gIZ6gI\/n2wADZCHhhMA=",
+                "HHY4NUhsDMRMRVlyFayl5B5cuG8LEXNQoPS+PND7\/yg="
+            ],
+            "hex": "b769cef7f2aa78069cb506030ad23ffbd54482576e87239e44ab18e9b9206f1a"
+        }
+    ]
+}

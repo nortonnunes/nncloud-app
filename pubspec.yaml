@@ -1,0 +1,40 @@
+name: nncloud
+description: "NN Cloud — sincronização de pastas do computador com o NN Conecta."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  nncloud_motor:
+    path: motor
+  window_manager: ^0.4.3
+  tray_manager: ^0.2.4
+  flutter_local_notifications: ^19.4.2
+  flutter_secure_storage: 9.2.4
+  file_picker: ^8.1.6
+  path_provider: ^2.1.5
+  url_launcher: ^6.3.1
+  package_info_plus: ^8.1.2
+  watcher: ^1.1.1
+  path: ^1.9.0
+  intl: ^0.20.1
+  win32: ^5.10.1
+  win32_registry: ^1.1.5
+  ffi: ^2.1.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/bandeja/

@@ -1,0 +1,9 @@
+// Nome, identificador e direitos do aplicativo NN Cloud.
+// ⚠️ O identificador NÃO muda depois de publicado: o macOS amarra a ele as
+// permissões já concedidas (notificações, pastas) e o item de início.
+
+PRODUCT_NAME = NN Cloud
+
+PRODUCT_BUNDLE_IDENTIFIER = br.com.nortonnunes.nncloud
+
+PRODUCT_COPYRIGHT = Copyright © 2026 Norton Nunes. Todos os direitos reservados.
