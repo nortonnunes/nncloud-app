@@ -1,3 +1,5 @@
+# Arquivo SO com caracteres ASCII, de proposito: o Windows PowerShell 5.1 le
+# .ps1 sem BOM como ANSI, e um travessao UTF-8 virava aspas e quebrava a string.
 # Gera o instalador do NN Cloud para Windows. Rodar NUM PC COM WINDOWS, com:
 #   - Flutter 3.41.6 (o mesmo do macOS) no PATH
 #   - Visual Studio 2022 com "Desenvolvimento para desktop com C++" (inclui ATL)
@@ -6,9 +8,9 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\empacotar-windows.ps1
 #   (opcional) $env:CERTIFICADO_PFX / $env:SENHA_PFX para assinar com Authenticode
 #
-# ⚠️ Sem assinatura Authenticode o Windows mostra o aviso do SmartScreen na
+# ATENCAO: sem assinatura Authenticode o Windows mostra o aviso do SmartScreen na
 # primeira vez ("Executar assim mesmo"). Funciona, mas assustar quem instala
-# custa chamados: vale comprar um certificado de assinatura de código.
+# custa chamados: vale comprar um certificado de assinatura de codigo.
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
@@ -17,9 +19,9 @@ Write-Host "NN Cloud $versao"
 
 flutter build windows --release
 $saida = 'build\windows\x64\runner\Release'
-if (-not (Test-Path "$saida\nncloud.exe")) { throw 'O build não gerou o nncloud.exe.' }
+if (-not (Test-Path "$saida\nncloud.exe")) { throw 'O build nao gerou o nncloud.exe.' }
 
-# Runtime do Visual C++ ao lado do .exe (instalação por usuário não pode rodar o VC_redist).
+# Runtime do Visual C++ ao lado do .exe (instalacao por usuario nao pode rodar o VC_redist).
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $vs = & $vswhere -latest -property installationPath
 $redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Sort-Object Name -Descending | Select-Object -First 1
@@ -41,4 +43,4 @@ $instalador = "build\instaladores\NN-Cloud-$versao-Windows.exe"
 Assinar $instalador
 
 (Get-FileHash $instalador -Algorithm SHA256).Hash.ToLower() + "  $instalador"
-Write-Host "Pronto: $instalador  — publique em Sistema → NN Cloud → Aplicativo (Windows)."
+Write-Host "Pronto: $instalador - publique em Sistema > NN Cloud > Aplicativo (Windows)."

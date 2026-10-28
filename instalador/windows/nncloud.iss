@@ -1,4 +1,4 @@
-; Instalador do NN Cloud para Windows (Inno Setup 6).
+﻿; Instalador do NN Cloud para Windows (Inno Setup 6).
 ; Gerado por scripts/empacotar-windows.ps1 — não compile à mão sem antes rodar
 ; o `flutter build windows --release` e copiar o runtime do Visual C++ (o script faz).
 ;
