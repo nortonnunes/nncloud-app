@@ -1,0 +1,47 @@
+# Gera o NN Cloud para Linux numa máquina Ubuntu do GitHub.
+# Aba "Actions" do repositório → "Instalador Linux" → "Run workflow".
+# Os arquivos (.deb e .tar.gz) saem em "Artifacts", no fim da execução.
+#
+# É o mesmo scripts/empacotar-linux.sh de um PC com Linux — aqui só se instalam
+# antes o Flutter e as bibliotecas de compilação.
+# ⚠️ ubuntu-22.04 e não "latest": o binário depende da glibc de onde foi
+# compilado; feito no 22.04, roda no Ubuntu 22.04+, Debian 12+ e equivalentes.
+name: Instalador Linux
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bibliotecas de compilação
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            libstdc++-12-dev libsecret-1-dev libjsoncpp-dev libayatana-appindicator3-dev dpkg-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+
+      - name: Dependências e testes do motor
+        run: |
+          flutter pub get
+          cd motor
+          dart pub get
+          dart test
+
+      - name: Gerar os pacotes
+        run: bash scripts/empacotar-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NN-Cloud-Linux
+          path: |
+            build/instaladores/*.deb
+            build/instaladores/*.tar.gz
+          if-no-files-found: error

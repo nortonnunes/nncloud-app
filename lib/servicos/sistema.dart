@@ -96,6 +96,7 @@ class InicioComSistema {
         return false;
       }
     }
+    if (Platform.isLinux) return File(_autostart()).existsSync();
     return false;
   }
 
@@ -131,7 +132,42 @@ class InicioComSistema {
         return 'Não foi possível alterar o início com o Windows ($e).';
       }
     }
+    if (Platform.isLinux) return _autostartLinux(ligar);
     return 'Não disponível neste sistema.';
+  }
+
+  /// Linux: o padrão freedesktop (GNOME, KDE, XFCE, Cinnamon, MATE…) — um `.desktop`
+  /// em `~/.config/autostart` (ou `$XDG_CONFIG_HOME/autostart`).
+  static String _autostart() {
+    final xdg = Platform.environment['XDG_CONFIG_HOME'];
+    final base = xdg != null && xdg.isNotEmpty ? xdg : p.join(Platform.environment['HOME'] ?? '', '.config');
+    return p.join(base, 'autostart', '$_rotulo.desktop');
+  }
+
+  static String? _autostartLinux(bool ligar) {
+    try {
+      final f = File(_autostart());
+      if (!ligar) {
+        if (f.existsSync()) f.deleteSync();
+        return null;
+      }
+      // Caminho com espaço vai entre aspas (especificação Desktop Entry).
+      final exe = Platform.resolvedExecutable.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
+      f
+        ..parent.createSync(recursive: true)
+        ..writeAsStringSync('''[Desktop Entry]
+Type=Application
+Name=NN Cloud
+Comment=Sincronização de pastas com o NN Conecta
+Exec="$exe" --oculto
+Icon=$_rotulo
+Terminal=false
+X-GNOME-Autostart-enabled=true
+''');
+      return null;
+    } catch (e) {
+      return 'Não foi possível configurar o início com o sistema ($e).';
+    }
   }
 
   static String _plist() => p.join(Platform.environment['HOME'] ?? '', 'Library', 'LaunchAgents', '$_rotulo.plist');
@@ -187,7 +223,9 @@ Future<int?> espacoLivre(String pasta) async {
         calloc.free(livre);
       }
     }
-    final r = await Process.run('df', ['-k', pasta]);
+    // `-P` (POSIX) no Linux: sem ele, um nome de dispositivo comprido quebra a linha
+    // e a coluna "disponível" muda de lugar.
+    final r = await Process.run('df', Platform.isLinux ? ['-Pk', pasta] : ['-k', pasta]);
     final linhas = (r.stdout as String).trim().split('\n');
     if (linhas.length < 2) return null;
     final cols = linhas.last.split(RegExp(r'\s+'));
@@ -208,7 +246,9 @@ String? motivoPastaRecusada(String caminho, List<String> jaSincronizadas) {
   if (casa.isNotEmpty && igual(c, casa)) return 'Escolha uma pasta dentro da sua pasta pessoal, não ela inteira.';
   final sistema = Platform.isWindows
       ? [r'C:\Windows', r'C:\Program Files', r'C:\Program Files (x86)', r'C:\ProgramData']
-      : ['/System', '/Library', '/Applications', '/usr', '/bin', '/sbin', '/private', '/Volumes/Macintosh HD'];
+      : Platform.isLinux
+          ? ['/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc', '/var', '/boot', '/opt', '/root', '/proc', '/sys', '/dev', '/run', '/snap', '/srv', '/tmp']
+          : ['/System', '/Library', '/Applications', '/usr', '/bin', '/sbin', '/private', '/Volumes/Macintosh HD'];
   for (final s in sistema) {
     if (dentro(c, s)) return 'Pastas do sistema não podem ser sincronizadas.';
   }

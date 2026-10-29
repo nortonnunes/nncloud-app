@@ -1,4 +1,5 @@
-// Notificações do sistema (Central de Notificações no macOS, toast no Windows).
+// Notificações do sistema (Central de Notificações no macOS, toast no Windows,
+// o servidor de notificações da sessão no Linux — GNOME, KDE, XFCE…).
 //
 // ⚠️ No Windows o toast precisa de um AppUserModelID registrado no ATALHO do
 // menu Iniciar — é o instalador que o cria (`instalador/windows/nncloud.iss`).
@@ -21,6 +22,7 @@ class Notificacoes {
         InitializationSettings(
           macOS: const DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: false, requestSoundPermission: false),
           windows: WindowsInitializationSettings(appName: 'NN Cloud', appUserModelId: appUserModelId, guid: _guid),
+          linux: const LinuxInitializationSettings(defaultActionName: 'Abrir o NN Cloud'),
         ),
         onDidReceiveNotificationResponse: (_) => aoTocar?.call(),
       );
@@ -40,6 +42,7 @@ class Notificacoes {
         NotificationDetails(
           macOS: const DarwinNotificationDetails(presentAlert: true, presentSound: false),
           windows: Platform.isWindows ? const WindowsNotificationDetails() : null,
+          linux: Platform.isLinux ? const LinuxNotificationDetails() : null,
         ),
       );
     } catch (_) {

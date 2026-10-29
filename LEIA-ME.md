@@ -1,4 +1,4 @@
-# NN Cloud — aplicativo para Windows e macOS
+# NN Cloud — aplicativo para Windows, macOS e Linux
 
 O NN Cloud mantém pastas do computador iguais a pastas do NN Cloud (o drive do NN Conecta), nos dois sentidos.
 Esta pasta não vai para o servidor: o aplicativo chega às pessoas pelo instalador, publicado em
@@ -10,12 +10,12 @@ Esta pasta não vai para o servidor: o aplicativo chega às pessoas pelo instala
 |---|---|
 | `motor/` | O motor de sincronização, em Dart puro (sem Flutter). Toda a lógica que decide e executa está aqui, e é testada sozinha. |
 | `lib/` | O aplicativo Flutter: telas, bandeja, notificações, início com o sistema. |
-| `macos/`, `windows/` | Os projetos nativos (nome, ícone, permissões). |
+| `macos/`, `windows/`, `linux/` | Os projetos nativos (nome, ícone, permissões). `linux/pacote/` tem os ícones do menu de aplicativos. |
 | `macos/NNCloudKit/` | Cliente Swift da API (impressão, envio, download, credenciais) — `swift test`. |
 | `macos/NNCloudFP/` | A extensão do Finder (File Provider): o "NN Cloud" sob demanda. |
 | `windows/runner/nuvem_windows.*` | A ponte com a Cloud Files API: o "NN Cloud" sob demanda no Explorador de Arquivos. |
 | `instalador/windows/nncloud.iss` | O instalador do Windows (Inno Setup). |
-| `scripts/` | `empacotar-macos.sh` e `empacotar-windows.ps1`. |
+| `scripts/` | `empacotar-macos.sh`, `empacotar-windows.ps1` e `empacotar-linux.sh`. |
 | `assets/` | Logo e ícones da bandeja. |
 
 ## Como funciona, em uma página
@@ -144,3 +144,30 @@ pela página do NN Cloud ou pelo Perfil → Integrações; os apps já instalado
 ## Versão
 
 Mude a versão em **dois lugares**: `pubspec.yaml` (`version:`) e `lib/config.dart` (`AppConfig.versao`).
+
+## Linux
+
+- **Gerar**: o Flutter só compila para Linux numa máquina Linux. No GitHub: aba **Actions → "Instalador Linux" → Run
+  workflow** (`.github/workflows/linux.yml`, Ubuntu 22.04); os arquivos saem em *Artifacts*. Num PC com Linux:
+  `bash scripts/empacotar-linux.sh` (pré-requisitos no topo do script).
+- **Saem dois arquivos** (em `build/instaladores/`):
+  - `nncloud_<versão>_amd64.deb` — Ubuntu, Debian, Mint, Pop!_OS: `sudo apt install ./nncloud_<versão>_amd64.deb`.
+    Instala em `/opt/nncloud`, com atalho no menu de aplicativos e o comando `nncloud`.
+  - `NN-Cloud-<versão>-linux-x64.tar.gz` — as demais distribuições: desempacotar e rodar `./instalar.sh` (só para o
+    usuário, sem sudo; `./instalar.sh --remover` tira).
+- **Compatibilidade**: compilado no Ubuntu 22.04, roda no Ubuntu 22.04+, Debian 12+ e equivalentes (o binário depende
+  da glibc de onde foi compilado). x64; para ARM, rode o script numa máquina ARM.
+- **Publicar**: Sistema → NN Cloud → Aplicativo → Linux (aceita `.deb`, `.tar.gz` ou `.AppImage`). A página do NN Cloud
+  e o Perfil passam a oferecer "Baixar para Linux".
+- **O que é diferente no Linux**:
+  - **Sem "NN Cloud no Finder/Explorador"** (arquivos sob demanda): o Linux não tem um padrão do sistema para isso.
+    Ficam as pastas sincronizadas, a pasta de envio e a sincronização seletiva — iguais às dos outros sistemas.
+  - **Token** no chaveiro da sessão (GNOME Keyring / KWallet, via libsecret). Sem chaveiro (gerenciador de janelas
+    mínimo, sessão remota), vai para o arquivo `token` na pasta do app, com permissão 600.
+  - **Ícone na barra** pelo AppIndicator (no GNOME puro, a extensão "AppIndicator"; o Ubuntu já traz). Sem ele, o app
+    continua sincronizando com a janela fechada; abrir de novo pelo menu de aplicativos mostra a janela.
+  - **Iniciar com o sistema**: `~/.config/autostart/br.com.nortonnunes.nncloud.desktop` (`--oculto`).
+  - **Dados do app**: `~/.local/share/br.com.nortonnunes.nncloud/NN Cloud/`.
+  - O Linux diferencia maiúsculas: dois arquivos `Foto.jpg` e `foto.jpg` na mesma pasta não convivem no NN Cloud (que
+    segue a regra do Windows e do macOS) — o segundo aparece em **Problemas**.
+

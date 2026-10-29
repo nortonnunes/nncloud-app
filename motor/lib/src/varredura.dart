@@ -7,6 +7,10 @@
 // ⚠️ O MARCADOR (`.nncloud`) na raiz diz "esta pasta é o par N". Se a raiz ou
 // o marcador sumirem (disco desmontado, pasta renomeada), o par PARA — pasta
 // sumida nunca vira "apague tudo na nuvem".
+// ⚠️ LINUX diferencia maiúsculas: "Foto.jpg" e "foto.jpg" podem estar na mesma
+// pasta, e o NN Cloud (como o Windows e o macOS) não as distingue. O SEGUNDO (na
+// ordem do nome) não entra na sincronização e vira PROBLEMA — sem isso, o
+// planejador juntaria os dois numa chave só e um deles sumiria em silêncio.
 import 'dart:convert';
 import 'dart:io';
 
@@ -75,6 +79,9 @@ class Varredura {
       if (rel.isNotEmpty) r.problemas[rel] = 'sem permissão para ler a pasta (${e.osError?.message ?? e.message})';
       return;
     }
+    // Ordem fixa: em colisão de maiúsculas, é sempre o mesmo que fica de fora.
+    filhos.sort((a, b) => p.basename(a.path).compareTo(p.basename(b.path)));
+    final chaves = <String, String>{};
     for (final f in filhos) {
       final nomeDisco = p.basename(f.path);
       final nome = nfc(nomeDisco);
@@ -85,8 +92,15 @@ class Varredura {
       }
       if (ignorados.nome(nome)) continue;
       final c = rel.isEmpty ? nome : '$rel/$nome';
-      final cReal = relReal.isEmpty ? nomeDisco : '$relReal/$nomeDisco';
       if (f is Link) continue;
+      final k = chaveNome(nome);
+      final outro = chaves[k];
+      if (outro != null) {
+        r.problemas[c] = 'já existe "$outro" nesta pasta — o NN Cloud não diferencia maiúsculas de minúsculas. Renomeie um dos dois.';
+        continue;
+      }
+      chaves[k] = nome;
+      final cReal = relReal.isEmpty ? nomeDisco : '$relReal/$nomeDisco';
       try {
         if (f is Directory) {
           r.itens[c] = ItemLocal(c, Tipo.pasta, 0, 0);

@@ -1,4 +1,4 @@
-// NN Cloud — aplicativo de sincronização de pastas (Windows e macOS).
+// NN Cloud — aplicativo de sincronização de pastas (Windows, macOS e Linux).
 //
 // Janela: fechar ESCONDE (o app segue na barra de menus / bandeja); "Sair" só
 // pela bandeja. Aberto com `--oculto` (início com o sistema), começa escondido.
@@ -149,6 +149,9 @@ class Bandeja with TrayListener {
     };
     if (Platform.isMacOS) {
       await trayManager.setIcon('assets/bandeja/mac_$estado.png', isTemplate: true);
+    } else if (Platform.isLinux) {
+      // Linux (AppIndicator): PNG colorido — o painel pode ser claro ou escuro.
+      await trayManager.setIcon('assets/bandeja/lin_$estado.png');
     } else {
       await trayManager.setIcon('assets/bandeja/win_$estado.ico');
     }

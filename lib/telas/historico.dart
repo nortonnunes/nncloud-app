@@ -127,7 +127,11 @@ class _TelaHistoricoState extends State<TelaHistorico> {
                         trailing: local == null
                             ? null
                             : IconButton(
-                                tooltip: 'Mostrar no ${Theme.of(context).platform == TargetPlatform.macOS ? 'Finder' : 'Explorer'}',
+                                tooltip: switch (Theme.of(context).platform) {
+                                  TargetPlatform.macOS => 'Mostrar no Finder',
+                                  TargetPlatform.linux => 'Mostrar na pasta',
+                                  _ => 'Mostrar no Explorer',
+                                },
                                 icon: const Icon(Icons.folder_open_outlined),
                                 onPressed: () => widget.c.mostrarNoGerenciador(local),
                               ),

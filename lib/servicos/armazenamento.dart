@@ -1,8 +1,11 @@
 // O que o aplicativo guarda no computador.
 //
 // ⚠️ O TOKEN vai para o chaveiro do sistema (Keychain no macOS, Gerenciador de
-// Credenciais no Windows), nunca para arquivo. No macOS usamos o chaveiro
-// "de login" (`useDataProtectionKeyChain: false`), que não exige perfil de
+// Credenciais no Windows, Secret Service — GNOME Keyring/KWallet — no Linux),
+// nunca para arquivo. A ÚNICA exceção é o Linux SEM chaveiro na sessão (gerenciador
+// de janelas mínimo, sessão remota): aí o token vai para `token` na pasta do app,
+// com permissão 600 (só o usuário lê) — sem isso o app não conectaria.
+// No macOS usamos o chaveiro "de login" (`useDataProtectionKeyChain: false`), que não exige perfil de
 // provisionamento — e continua valendo depois de um novo build assinado.
 // As PREFERÊNCIAS (tema, notificações, pausas, proxy…) são um JSON comum.
 import 'dart:convert';
@@ -58,10 +61,31 @@ class Armazenamento {
   Future<String?> token() async {
     if (usarTokenFixo) return tokenFixo;
     try {
-      return await _seguro.read(key: _chaveToken);
+      final t = await _seguro.read(key: _chaveToken);
+      if (t != null) return t;
+    } catch (_) {
+      // Linux sem chaveiro: cai no arquivo
+    }
+    return Platform.isLinux ? _lerArquivoToken() : null;
+  }
+
+  File get _arquivoToken => File(p.join(dados.path, 'token'));
+
+  String? _lerArquivoToken() {
+    try {
+      final t = _arquivoToken.readAsStringSync().trim();
+      return t.isEmpty ? null : t;
     } catch (_) {
       return null;
     }
+  }
+
+  void _gravarArquivoToken(String t) {
+    final tmp = File('${_arquivoToken.path}.tmp');
+    tmp.writeAsStringSync('');
+    Process.runSync('chmod', ['600', tmp.path]);   // antes de escrever o segredo
+    tmp.writeAsStringSync(t);
+    tmp.renameSync(_arquivoToken.path);
   }
 
   Future<void> gravarToken(String? t) async {
@@ -70,9 +94,20 @@ class Armazenamento {
       return;
     }
     if (t == null) {
-      await _seguro.delete(key: _chaveToken);
-    } else {
+      try {
+        await _seguro.delete(key: _chaveToken);
+      } catch (_) {
+        if (!Platform.isLinux) rethrow;
+      }
+      if (Platform.isLinux && _arquivoToken.existsSync()) _arquivoToken.deleteSync();
+      return;
+    }
+    try {
       await _seguro.write(key: _chaveToken, value: t);
+      if (Platform.isLinux && _arquivoToken.existsSync()) _arquivoToken.deleteSync();
+    } catch (_) {
+      if (!Platform.isLinux) rethrow;
+      _gravarArquivoToken(t);
     }
   }
 }

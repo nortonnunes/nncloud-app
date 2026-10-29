@@ -43,7 +43,7 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
   @override
   Widget build(BuildContext context) {
     final pessoa = (c.eu?['pessoa'] as Map?) ?? {};
-    final so = Platform.isWindows ? 'windows' : 'macos';
+    final so = Platform.isWindows ? 'windows' : (Platform.isLinux ? 'linux' : 'macos');
     final nova = c.eu?['app']?[so] as Map?;
     return ListView(padding: const EdgeInsets.all(28), children: [
       Text('Configurações', style: Theme.of(context).textTheme.headlineSmall),
@@ -58,7 +58,7 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
       ]),
       _secao('Geral', [
         SwitchListTile(
-          title: Text('Iniciar com o ${Platform.isWindows ? 'Windows' : 'macOS'}'),
+          title: Text('Iniciar com o ${Platform.isWindows ? 'Windows' : (Platform.isLinux ? 'sistema' : 'macOS')}'),
           subtitle: const Text('Abre escondido, na barra de menus / bandeja, e começa a sincronizar.'),
           value: inicio ?? false,
           onChanged: inicio == null

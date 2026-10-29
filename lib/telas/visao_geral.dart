@@ -105,7 +105,7 @@ class TelaVisaoGeral extends StatelessWidget {
                 const SizedBox(height: 14),
                 Wrap(spacing: 10, runSpacing: 10, children: [
                   FilledButton.icon(
-                    onPressed: c.pares.isEmpty || c.situacao == Situacao.sincronizando ? null : c.sincronizarAgora,
+                    onPressed: (c.pares.isEmpty && !c.fpLigado) || c.situacao == Situacao.sincronizando ? null : c.sincronizarAgora,
                     icon: const Icon(Icons.sync),
                     label: const Text('Sincronizar agora'),
                   ),
@@ -327,10 +327,12 @@ class _Finder extends StatelessWidget {
               title: const Text('Liberar o espaço depois de enviar'),
               subtitle: Text('O que você coloca no NN Cloud pelo $_local sobe e fica só na nuvem.'),
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(onPressed: c.abrirNoFinder, icon: const Icon(Icons.open_in_new), label: Text('Abrir no $_local')),
-            ),
+            Wrap(spacing: 10, runSpacing: 10, children: [
+              OutlinedButton.icon(onPressed: c.abrirNoFinder, icon: const Icon(Icons.open_in_new), label: Text('Abrir no $_local')),
+              // O registro do que subiu e do que deu errado: é o que se pede quando "não sincroniza".
+              if (c.windows)
+                TextButton.icon(onPressed: c.abrirRegistroFp, icon: const Icon(Icons.description_outlined), label: const Text('Abrir o registro')),
+            ]),
           ],
         ]),
       ),

@@ -114,6 +114,31 @@ class NativoFalso implements NativoNuvem {
     ph.remove(c);
   }
 
+  @override
+  Future<List<EntradaLocal>> varrer(String raiz) async {
+    final out = <EntradaLocal>[];
+    for (final e in Directory(raiz).listSync(recursive: true, followLinks: false)) {
+      final c = _k(e.path);
+      final x = ph[c];
+      final pasta = e is Directory;
+      if (x == null) {
+        out.add(EntradaLocal(c, pasta: pasta));
+      } else if (!x.emDia) {
+        out.add(EntradaLocal(c, pasta: pasta, placeholder: true));
+      }
+    }
+    return out;
+  }
+
+  final List<String> marcados = [];
+
+  @override
+  Future<bool> marcarEmDia(String caminho) async {
+    marcados.add(_k(caminho));
+    ph[_k(caminho)]?.emDia = true;
+    return true;
+  }
+
   // ---- o que o usuário faz no Explorer ----
 
   /// Abrir: o Windows pede o conteúdo ao app e o grava no placeholder.
@@ -311,6 +336,31 @@ void main() {
     pr.localMudou([c('solto.txt')]);
     await pr.processarLocais();
     expect(eventos.where((e) => e.tipo == 'problema' && e.caminho == 'solto.txt'), isNotEmpty);
+  });
+
+  test('conferência do disco: pasta vazia sobe sem aviso do observador, a pasta-mãe volta a "em dia" e problema não repete', () async {
+    // O `watcher` do Dart não avisa de pasta nova: ninguém chama localMudou.
+    Directory(c('Meu Drive/Teste')).createSync();
+    n.ph[p.normalize(c('Meu Drive'))]!.emDia = false;   // o Windows tira a marca da mãe
+    eventos.clear();
+    n.marcados.clear();
+    expect(await pr.conferirDisco(), greaterThanOrEqualTo(1));
+    final e = (await n.estado(c('Meu Drive/Teste')))!;
+    expect(e.placeholder && e.emDia, isTrue);
+    final it = await item(ana2, numeroDoItem(idDaIdentidade(e.identidade))!);
+    expect(it['nome'], 'Teste');
+    expect(it['pai'], 'meu');
+    expect((await n.estado(c('Meu Drive')))!.emDia, isTrue);
+    expect(n.marcados, contains(p.normalize(c('Meu Drive'))));
+    // meu.txt e solto.txt já deram problema no teste anterior: não voltam a cada ciclo.
+    expect(eventos.where((x) => x.tipo == 'problema'), isEmpty);
+    expect(await pr.conferirDisco(), 0);
+    expect(eventos.where((x) => x.tipo == 'problema'), isEmpty);
+    // Mudou o arquivo: tenta de novo (e o problema aparece de novo).
+    File(c('solto.txt')).writeAsStringSync('xy');
+    File(c('solto.txt')).setLastModifiedSync(DateTime.now().subtract(const Duration(seconds: 5)));
+    await pr.conferirDisco();
+    expect(eventos.where((x) => x.tipo == 'problema' && x.caminho == 'solto.txt'), hasLength(1));
   });
 
   test('liberar depois de enviar: o arquivo sobe e sai do disco', () async {

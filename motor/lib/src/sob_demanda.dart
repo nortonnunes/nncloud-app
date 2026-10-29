@@ -88,8 +88,23 @@ class NovoPlaceholder {
   const NovoPlaceholder(this.nome, this.identidade, this.pasta, this.tamanho, this.criadoMs, this.modificadoMs);
 }
 
+/// Um caminho do disco que NÃO está "placeholder em dia" (ver [NativoNuvem.varrer]).
+class EntradaLocal {
+  final String caminho;
+  final bool pasta, placeholder, emDia;
+  const EntradaLocal(this.caminho, {this.pasta = false, this.placeholder = false, this.emDia = false});
+}
+
 /// O que o sistema operacional faz por nós (Cloud Files API no Windows).
 abstract class NativoNuvem {
+  /// Percorre a árvore inteira abaixo de [raiz] e devolve só o que está FORA de
+  /// "placeholder em dia": arquivo/pasta comum (nunca subiu), arquivo editado e
+  /// pasta da nuvem que perdeu a marca de "em dia" porque algo mudou dentro.
+  Future<List<EntradaLocal>> varrer(String raiz);
+
+  /// Marca uma pasta da nuvem (ou a raiz) como "em dia" de novo.
+  Future<bool> marcarEmDia(String caminho);
+
   /// Cria placeholders (só nuvem, em dia) dentro de [pasta]. Nome que já existe é ignorado.
   Future<void> criarPlaceholders(String pasta, List<NovoPlaceholder> itens);
 
@@ -143,6 +158,10 @@ class ProvedorSobDemanda {
   Future<void> _fila = Future.value();
   final Set<String> _sujos = {};
   Timer? _timerSujos;
+  /// O que deu problema DEFINITIVO ao subir (sem permissão, fora de Meu Drive…):
+  /// caminho → como ele estava. A conferência do disco não tenta de novo enquanto
+  /// ele não mudar — senão o mesmo aviso voltaria a cada ciclo.
+  final Map<String, String> _recusados = {};
 
   ProvedorSobDemanda({
     required this.api,
@@ -496,6 +515,7 @@ class ProvedorSobDemanda {
       final rel = relDe(c);
       if (rel == null || rel.isEmpty || ignorados.caminho(rel)) continue;
       _sujos.add(rel);
+      _recusados.remove(rel);
     }
     _agendar();
   }
@@ -511,16 +531,83 @@ class ProvedorSobDemanda {
   bool get temPendentes => _sujos.isNotEmpty;
 
   /// Envia o que está pendente (normalmente chamado pelo temporizador do observador).
-  Future<void> processarLocais() => _serial(() async {
-        final lista = _sujos.toList()..sort((a, b) => a.length.compareTo(b.length));
-        _sujos.clear();
-        final feitos = <String>{};
-        for (final rel in lista) {
-          if (feitos.any((f) => rel.startsWith('$f/'))) continue;   // a pasta acima já levou
-          final r = await _enviarLocal(rel);
-          if (r != null) feitos.add(r);
+  Future<void> processarLocais() => _serial(_processar);
+
+  Future<void> _processar() async {
+    final lista = _sujos.toList()..sort((a, b) => a.length.compareTo(b.length));
+    _sujos.clear();
+    final feitos = <String>{};
+    for (final rel in lista) {
+      if (feitos.any((f) => rel.startsWith('$f/'))) continue;   // a pasta acima já levou
+      final r = await _enviarLocal(rel);
+      if (r != null) feitos.add(r);
+    }
+  }
+
+  /// Confere o DISCO inteiro: o que não é placeholder em dia vai para a fila de
+  /// envio, e a pasta da nuvem que só perdeu a marca de "em dia" (o Windows a tira
+  /// quando algo muda dentro) a recebe de volta quando tudo abaixo dela está em dia.
+  ///
+  /// ⚠️ É a rede do observador de pasta: o `watcher` do Dart só avisa de ARQUIVO —
+  /// pasta nova (vazia) não gera aviso nenhum e ficaria no disco para sempre — e um
+  /// observador que cai não avisa ninguém. Roda a cada ciclo do app.
+  /// Devolve quantos itens estavam pendentes (0 = tudo em dia).
+  Future<int> conferirDisco() => _serial(() async {
+        final lista = await nativo.varrer(raiz);
+        var pendentes = 0;
+        var pastasFora = false;
+        for (final e in lista) {
+          final rel = relDe(e.caminho);
+          if (rel == null || rel.isEmpty || ignorados.caminho(rel)) continue;
+          if (e.placeholder && e.pasta) {
+            pastasFora = true;
+            continue;
+          }
+          if (_recusados[rel] == _assinatura(rel)) continue;
+          _recusados.remove(rel);
+          pendentes++;
+          _sujos.add(rel);
         }
+        if (_sujos.isNotEmpty) await _processar();
+        if (pendentes > 0 || pastasFora) await _marcarPastasEmDia();
+        return pendentes;
       });
+
+  /// As pastas da nuvem fora de "em dia" sem nada pendente abaixo delas voltam a
+  /// "em dia" (e a raiz, quando não sobra nada). Sem isso o Explorer mostraria o
+  /// ícone de "sincronizando" na pasta para sempre, mesmo com tudo enviado.
+  Future<void> _marcarPastasEmDia() async {
+    final lista = await nativo.varrer(raiz);
+    final pastas = <String>[];
+    final resto = <String>[];
+    for (final e in lista) {
+      final rel = relDe(e.caminho);
+      if (rel == null || rel.isEmpty || ignorados.caminho(rel)) continue;
+      (e.placeholder && e.pasta ? pastas : resto).add(rel);
+    }
+    for (final d in pastas) {
+      if (resto.any((r) => r.startsWith('$d/'))) continue;
+      await nativo.marcarEmDia(_abs(d));
+    }
+    if (resto.isEmpty) await nativo.marcarEmDia(raiz);
+  }
+
+  String _assinatura(String rel) {
+    try {
+      final st = FileStat.statSync(_abs(rel));
+      if (st.type == FileSystemEntityType.notFound) return '';
+      return '${st.type}|${st.size}|${st.modified.millisecondsSinceEpoch}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Um problema que não se resolve sozinho: aparece na tela e não é tentado de
+  /// novo enquanto o arquivo/pasta não mudar.
+  void _problema(String rel, String msg) {
+    _recusados[rel] = _assinatura(rel);
+    _ev('problema', rel, msg);
+  }
 
   /// Envia o que mudou em [rel] (arquivo novo, pasta nova ou edição). Devolve o
   /// caminho efetivamente tratado (uma pasta-mãe que ainda não subiu leva junto).
@@ -548,7 +635,7 @@ class ProvedorSobDemanda {
       if (e.transitorio) {
         _sujos.add(alvo);   // sem rede: tenta no próximo ciclo
       } else {
-        _ev('problema', alvo, e.status == 403 ? 'Sem permissão para guardar aqui.' : e.mensagem);
+        _problema(alvo, e.status == 403 ? 'Sem permissão para guardar aqui.' : e.mensagem);
       }
     } on FileSystemException {
       _sujos.add(alvo);     // aberto/travado por outro programa: tenta depois
@@ -560,7 +647,7 @@ class ProvedorSobDemanda {
     final idPai = await _idDaPasta(_paiDe(rel));
     final destino = idPai == null ? null : await _destino(idPai);
     if (destino == null) {
-      _ev('problema', rel, 'Aqui só dá para guardar dentro de Meu Drive, de um drive ou de uma pasta.');
+      _problema(rel, 'Aqui só dá para guardar dentro de Meu Drive, de um drive ou de uma pasta.');
       return;
     }
     final r = await api.criarPasta(
@@ -611,7 +698,7 @@ class ProvedorSobDemanda {
     final idPai = await _idDaPasta(_paiDe(rel));
     final destino = idPai == null ? null : await _destino(idPai);
     if (destino == null) {
-      _ev('problema', rel, 'Aqui só dá para guardar dentro de Meu Drive, de um drive ou de uma pasta.');
+      _problema(rel, 'Aqui só dá para guardar dentro de Meu Drive, de um drive ou de uma pasta.');
       return;
     }
     final r = await enviarConteudo(api, f, imp, st, {'nome': _nomeDe(rel), ...destino});

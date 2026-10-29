@@ -83,7 +83,7 @@ class Controle extends ChangeNotifier {
   String get baseApi => arm.pref<String>('api', AppConfig.apiPadrao);
   int get intervalo => (eu?['config']?['intervalo_seg'] as int?) ?? 30;
   String get nomeComputador => Platform.localHostname.replaceAll(RegExp(r'\.local$'), '');
-  String get plataforma => Platform.isWindows ? 'windows' : 'macos';
+  String get plataforma => Platform.isWindows ? 'windows' : (Platform.isLinux ? 'linux' : 'macos');
 
   int get pendentes => resultados.values.fold(0, (s, r) => s + r.pendentes);
   List<String> get problemas => [for (final r in resultados.values) ...r.problemas, ...fpProblemas];
@@ -377,6 +377,13 @@ class Controle extends ChangeNotifier {
   Future<void> abrirNoFinder() => Platform.isWindows ? _windows.abrir() : SobDemanda.abrir();
 
   Future<void> abrirAjustesFinder() => SobDemanda.abrirAjustes();
+
+  /// Windows: mostra o `explorer.log` no Explorador (o registro do NN Cloud no Explorer).
+  Future<void> abrirRegistroFp() async {
+    final f = _windows.arquivoRegistro;
+    if (!f.existsSync()) _windows.registrar('registro aberto (ainda vazio)');
+    await Process.run('explorer', ['/select,', f.path]);
+  }
 
   /// Reconfere a aprovação (a pessoa volta dos Ajustes do Sistema para o app).
   Future<void> reconferirFp() async {
@@ -675,7 +682,17 @@ class Controle extends ChangeNotifier {
       await Process.run('open', [caminho]);
     } else if (Platform.isWindows) {
       await Process.run('explorer', [caminho]);
+    } else if (Platform.isLinux) {
+      await _xdgOpen(caminho);
     }
+  }
+
+  /// Linux: abre com o programa padrão da sessão (Nautilus, Dolphin, Thunar…).
+  /// Nunca lança — sem `xdg-open` (instalação mínima) não há o que abrir.
+  Future<void> _xdgOpen(String alvo) async {
+    try {
+      await Process.start('xdg-open', [alvo], mode: ProcessStartMode.detached);
+    } catch (_) {}
   }
 
   Future<void> mostrarNoGerenciador(String caminhoAbs) async {
@@ -683,6 +700,18 @@ class Controle extends ChangeNotifier {
       await Process.run('open', ['-R', caminhoAbs]);
     } else if (Platform.isWindows) {
       await Process.run('explorer', ['/select,', caminhoAbs]);
+    } else if (Platform.isLinux) {
+      // O padrão freedesktop para "mostrar o arquivo selecionado" (Nautilus, Dolphin,
+      // Nemo, Caja…). Sem ele, abre a pasta do arquivo.
+      try {
+        final r = await Process.run('dbus-send', [
+          '--session', '--print-reply', '--dest=org.freedesktop.FileManager1', '--type=method_call',
+          '/org/freedesktop/FileManager1', 'org.freedesktop.FileManager1.ShowItems',
+          'array:string:${Uri.file(caminhoAbs)}', 'string:',
+        ]);
+        if (r.exitCode == 0) return;
+      } catch (_) {}
+      await _xdgOpen(File(caminhoAbs).parent.path);
     }
   }
 

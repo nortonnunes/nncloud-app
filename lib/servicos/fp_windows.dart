@@ -22,6 +22,23 @@ const _canal = MethodChannel('nncloud/fp');
 
 /// O NativoNuvem do Windows: cada operação é uma chamada ao C++ do runner.
 class NativoWindows implements NativoNuvem {
+  /// Onde vão as falhas do nativo (o registro `explorer.log`).
+  void Function(String linha)? log;
+
+  @override
+  Future<List<EntradaLocal>> varrer(String raiz) async {
+    final r = await _canal.invokeListMethod<Object?>('varrer', {'raiz': raiz}) ?? const [];
+    return [
+      for (final x in r)
+        if (x is Map)
+          EntradaLocal('${x['caminho']}',
+              pasta: x['pasta'] == true, placeholder: x['placeholder'] == true, emDia: x['emDia'] == true),
+    ];
+  }
+
+  @override
+  Future<bool> marcarEmDia(String caminho) => _ok('marcarEmDia', {'caminho': caminho});
+
   @override
   Future<void> criarPlaceholders(String pasta, List<NovoPlaceholder> itens) async {
     if (itens.isEmpty) return;
@@ -59,7 +76,7 @@ class NativoWindows implements NativoNuvem {
       await _canal.invokeMethod(metodo, args);
       return true;
     } on PlatformException catch (e) {
-      debugPrint('NN Cloud (Explorer) $metodo ${args['caminho']}: ${e.message}');
+      log?.call('nativo $metodo ${args['caminho']}: ${e.message}');
       return false;
     }
   }
@@ -116,6 +133,29 @@ class SobDemandaWindows {
 
   SobDemandaWindows(this.dados, this.aoEvento) {
     _canal.setMethodCallHandler(_doWindows);
+    nativo.log = registrar;
+  }
+
+  /// O registro do Explorador (`explorer.log`, ao lado das preferências): o que subiu,
+  /// o que deu problema e as falhas do Windows. É o que se pede quando "não sincroniza"
+  /// — sem ele, a única pista seria o que a pessoa lembra de ter feito.
+  File get arquivoRegistro => File(p.join(dados.path, 'explorer.log'));
+
+  void registrar(String linha) {
+    debugPrint('NN Cloud (Explorer): $linha');
+    try {
+      final f = arquivoRegistro;
+      if (f.existsSync() && f.lengthSync() > 1024 * 1024) {
+        f.renameSync('${f.path}.1');   // guarda o anterior; o novo começa vazio
+      }
+      final agora = DateTime.now().toIso8601String().substring(0, 19).replaceFirst('T', ' ');
+      f.writeAsStringSync('$agora  $linha\n', mode: FileMode.append, flush: true);
+    } catch (_) {}
+  }
+
+  void _evento(EventoSobDemanda e) {
+    registrar('${e.tipo} ${e.caminho}${e.detalhe == null ? '' : ' — ${e.detalhe}'}');
+    aoEvento(e);
   }
 
   static Future<bool> suportado() async {
@@ -146,8 +186,10 @@ class SobDemandaWindows {
     try {
       await _canal.invokeMethod('registrar', {'raiz': raiz, 'conta': conta});
     } on PlatformException catch (e) {
+      registrar('registrar $raiz: ${e.message}');
       return 'O Windows recusou criar o NN Cloud no Explorador de Arquivos: ${e.message}';
     }
+    registrar('registrado em $raiz');
     return iniciar(raiz, api: api, computador: computador, liberar: liberar);
   }
 
@@ -156,6 +198,7 @@ class SobDemandaWindows {
     try {
       await _canal.invokeMethod('conectar', {'raiz': raiz});
     } on PlatformException catch (e) {
+      registrar('conectar $raiz: ${e.message}');
       return 'Não foi possível conectar o NN Cloud ao Explorador de Arquivos: ${e.message}';
     }
     final pr = ProvedorSobDemanda(
@@ -165,27 +208,53 @@ class SobDemandaWindows {
       arquivoEstado: _estado,
       computador: computador,
       liberarAposEnviar: liberar,
-      aoEvento: aoEvento,
+      aoEvento: _evento,
     )..carregar();
     provedor = pr;
+    registrar('conectado em $raiz');
     _observar(raiz);
-    unawaited(_seguro(() => pr.sincronizar(completo: true)));
+    unawaited(_seguro(() async {
+      await pr.sincronizar(completo: true);
+      await _conferir(pr);
+    }));
     return null;
   }
 
+  /// O observador de pasta: o que muda no disco sobe em ~2 s. Se ele cair (o erro
+  /// era engolido), volta sozinho — e a conferência do disco a cada ciclo cobre o
+  /// intervalo. ⚠️ Ele só avisa de ARQUIVO; pasta nova é a conferência que pega.
   void _observar(String raiz) {
     _observador?.cancel();
-    _observador = DirectoryWatcher(raiz).events.listen((ev) {
-      provedor?.localMudou([ev.path]);
-    }, onError: (_) {});
+    _observador = DirectoryWatcher(raiz).events.listen(
+      (ev) => provedor?.localMudou([ev.path]),
+      onError: (Object e) {
+        registrar('observador de pasta caiu: $e');
+        _religar(raiz);
+      },
+      onDone: () => _religar(raiz),
+      cancelOnError: true,
+    );
   }
 
-  /// A cada ciclo do app: mudanças da nuvem e o que ficou pendente aqui.
+  void _religar(String raiz) {
+    Timer(const Duration(seconds: 5), () {
+      if (provedor?.raiz == raiz && Directory(raiz).existsSync()) _observar(raiz);
+    });
+  }
+
+  /// A cada ciclo do app: mudanças da nuvem, depois a conferência do disco (o que
+  /// foi criado/editado aqui e o observador não pegou) e o que ficou pendente.
   Future<void> ciclo() async {
     final pr = provedor;
     if (pr == null) return;
     await _seguro(() => pr.sincronizar());
+    await _seguro(() => _conferir(pr));
     if (pr.temPendentes) await _seguro(pr.processarLocais);
+  }
+
+  Future<void> _conferir(ProvedorSobDemanda pr) async {
+    final n = await pr.conferirDisco();
+    if (n > 0) registrar('conferência do disco: $n item(ns) para enviar');
   }
 
   set liberar(bool v) => provedor?.liberarAposEnviar = v;
@@ -249,15 +318,27 @@ class SobDemandaWindows {
     switch (c.method) {
       case 'buscar':
         _fila(() => _buscar(a['req'] as int, '${a['identidade']}', (a['tamanho'] as num?)?.toInt() ?? 0));
+      // ⚠️ O Windows fica esperando a resposta (o Explorer trava até 60 s): ela sai
+      // SEMPRE, inclusive quando algo dá errado no meio.
       case 'apagar':
-        final ok = pr != null && await pr.aoApagar('${a['identidade']}', '${a['caminho']}');
+        var ok = false;
+        try {
+          ok = pr != null && await pr.aoApagar('${a['identidade']}', '${a['caminho']}');
+        } catch (e) {
+          registrar('apagar ${a['caminho']}: $e');
+        }
         await _responder(a['req'] as int, ok);
       case 'renomear':
         final dentro = a['dentro'] == true;
-        final ok = pr != null &&
-            (dentro
-                ? await pr.aoRenomear('${a['identidade']}', '${a['de']}', '${a['para']}')
-                : await pr.aoApagar('${a['identidade']}', '${a['de']}'));
+        var ok = false;
+        try {
+          ok = pr != null &&
+              (dentro
+                  ? await pr.aoRenomear('${a['identidade']}', '${a['de']}', '${a['para']}')
+                  : await pr.aoApagar('${a['identidade']}', '${a['de']}'));
+        } catch (e) {
+          registrar('renomear ${a['de']}: $e');
+        }
         await _responder(a['req'] as int, ok);
     }
     return null;
@@ -342,9 +423,10 @@ class SobDemandaWindows {
     try {
       await f();
     } on ApiErro catch (e) {
+      registrar('servidor: ${e.status} ${e.mensagem}');
       if (!e.transitorio) aoEvento(EventoSobDemanda('problema', '', e.mensagem));
-    } catch (e) {
-      debugPrint('NN Cloud (Explorer): $e');
+    } catch (e, s) {
+      registrar('falha: $e\n${s.toString().split('\n').take(6).join('\n')}');
     }
   }
 
