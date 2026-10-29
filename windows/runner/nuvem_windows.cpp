@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -567,6 +568,69 @@ std::string Desidratar(const std::wstring& caminho) {
   return FAILED(hr) ? "CfDehydratePlaceholder " + Hresult(hr) : std::string();
 }
 
+// ---------------------------------------------------------------- conferência do disco
+
+constexpr size_t kMaxVarrer = 20000;   // teto de itens devolvidos numa varredura
+constexpr int kMaxProfundidade = 64;
+
+bool EhNuvem(const WIN32_FIND_DATAW& fd) {
+  // Placeholder = ponto de nova análise da família "cloud" (IO_REPARSE_TAG_CLOUD_x).
+  return (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 &&
+         (fd.dwReserved0 & 0xFFFF0FFF) == (IO_REPARSE_TAG_CLOUD & 0xFFFF0FFF);
+}
+
+// Lê a marca "em dia" de um placeholder (abre só os atributos: não baixa nada).
+bool EmDia(const std::wstring& caminho) {
+  HANDLE h = Abrir(caminho, FILE_READ_ATTRIBUTES);
+  if (h == INVALID_HANDLE_VALUE) return true;   // sem como ler: não acusa
+  CF_PLACEHOLDER_BASIC_INFO info{};
+  DWORD n = 0;
+  HRESULT hr = CfGetPlaceholderInfo(h, CF_PLACEHOLDER_INFO_BASIC, &info, sizeof(info), &n);
+  CloseHandle(h);
+  // Identidade grande devolve "buffer pequeno" (o cabeçalho, com o estado, vem assim mesmo).
+  if (FAILED(hr) && hr != HRESULT_FROM_WIN32(ERROR_MORE_DATA)) return false;
+  return info.InSyncState == CF_IN_SYNC_STATE_IN_SYNC;
+}
+
+// Tudo abaixo de [pasta] que NÃO é "placeholder em dia" (arquivo/pasta comum,
+// arquivo editado, pasta que perdeu a marca). Pastas comuns e da nuvem são
+// percorridas; outros pontos de nova análise (atalhos de pasta) não.
+void Varrer(const std::wstring& pasta, int nivel, flutter::EncodableList& out) {
+  if (nivel > kMaxProfundidade || out.size() >= kMaxVarrer) return;
+  WIN32_FIND_DATAW fd;
+  HANDLE f = FindFirstFileExW((pasta + L"\\*").c_str(), FindExInfoBasic, &fd, FindExSearchNameMatch, nullptr,
+                              FIND_FIRST_EX_LARGE_FETCH);
+  if (f == INVALID_HANDLE_VALUE) return;
+  do {
+    std::wstring nome = fd.cFileName;
+    if (nome == L"." || nome == L"..") continue;
+    std::wstring c = pasta + L"\\" + nome;
+    bool ehPasta = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    bool nuvem = EhNuvem(fd);
+    bool emDia = nuvem && EmDia(c);
+    if (!(nuvem && emDia)) {
+      out.push_back(flutter::EncodableValue(flutter::EncodableMap{
+          {V("caminho"), V(ParaUtf8(c))},
+          {V("pasta"), flutter::EncodableValue(ehPasta)},
+          {V("placeholder"), flutter::EncodableValue(nuvem)},
+          {V("emDia"), flutter::EncodableValue(emDia)},
+      }));
+      if (out.size() >= kMaxVarrer) break;
+    }
+    bool outroPonto = (fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 && !nuvem;
+    if (ehPasta && !outroPonto) Varrer(c, nivel + 1, out);
+  } while (out.size() < kMaxVarrer && FindNextFileW(f, &fd));
+  FindClose(f);
+}
+
+std::string MarcarEmDia(const std::wstring& caminho) {
+  HANDLE h = Abrir(caminho, FILE_READ_ATTRIBUTES | WRITE_DAC);
+  if (h == INVALID_HANDLE_VALUE) return "abrir " + Hresult(HRESULT_FROM_WIN32(GetLastError()));
+  HRESULT hr = CfSetInSyncState(h, CF_IN_SYNC_STATE_IN_SYNC, CF_SET_IN_SYNC_FLAG_NONE, nullptr);
+  CloseHandle(h);
+  return FAILED(hr) ? "CfSetInSyncState " + Hresult(hr) : std::string();
+}
+
 std::string Reverter(const std::wstring& caminho) {
   HANDLE h = Abrir(caminho, FILE_READ_ATTRIBUTES | WRITE_DAC);
   if (h == INVALID_HANDLE_VALUE) return "abrir " + Hresult(HRESULT_FROM_WIN32(GetLastError()));
@@ -652,6 +716,18 @@ void NuvemWindows::Tratar(const flutter::MethodCall<flutter::EncodableValue>& ch
         });
       }
     }).detach();
+  } else if (m == "varrer") {
+    // Percorre a árvore inteira: numa thread à parte, para a janela não travar numa
+    // pasta grande. A resposta volta pela fila da janela.
+    std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> r(resposta.release());
+    std::wstring raiz = ParaW(Texto(a, "raiz"));
+    std::thread([this, r, raiz]() {
+      auto lista = std::make_shared<flutter::EncodableList>();
+      Varrer(raiz, 0, *lista);
+      NaJanela([r, lista]() { r->Success(flutter::EncodableValue(*lista)); });
+    }).detach();
+  } else if (m == "marcarEmDia") {
+    erroOuOk(MarcarEmDia(ParaW(Texto(a, "caminho"))));
   } else if (m == "conectar") {
     erroOuOk(Conectar(ParaW(Texto(a, "raiz"))));
   } else if (m == "desconectar") {
