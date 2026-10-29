@@ -35,6 +35,13 @@
 #define FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS 0x00400000
 #endif
 
+// Está na documentação da cfapi, mas não no cfapi.h de todo SDK (faltou no do
+// GitHub Actions): o tamanho do cabeçalho + o membro da união que vai ser usado.
+#ifndef CF_SIZE_OF_OP_PARAM
+#define CF_SIZE_OF_OP_PARAM(campo) \
+  (FIELD_OFFSET(CF_OPERATION_PARAMETERS, campo) + RTL_FIELD_SIZE(CF_OPERATION_PARAMETERS, campo))
+#endif
+
 namespace {
 
 constexpr NTSTATUS kStatusOk = 0;
