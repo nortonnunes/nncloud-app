@@ -11,6 +11,9 @@ Esta pasta não vai para o servidor: o aplicativo chega às pessoas pelo instala
 | `motor/` | O motor de sincronização, em Dart puro (sem Flutter). Toda a lógica que decide e executa está aqui, e é testada sozinha. |
 | `lib/` | O aplicativo Flutter: telas, bandeja, notificações, início com o sistema. |
 | `macos/`, `windows/` | Os projetos nativos (nome, ícone, permissões). |
+| `macos/NNCloudKit/` | Cliente Swift da API (impressão, envio, download, credenciais) — `swift test`. |
+| `macos/NNCloudFP/` | A extensão do Finder (File Provider): o "NN Cloud" sob demanda. |
+| `windows/runner/nuvem_windows.*` | A ponte com a Cloud Files API: o "NN Cloud" sob demanda no Explorador de Arquivos. |
 | `instalador/windows/nncloud.iss` | O instalador do Windows (Inno Setup). |
 | `scripts/` | `empacotar-macos.sh` e `empacotar-windows.ps1`. |
 | `assets/` | Logo e ícones da bandeja. |
@@ -39,6 +42,19 @@ Esta pasta não vai para o servidor: o aplicativo chega às pessoas pelo instala
   - **Sincronização seletiva**: desmarque as subpastas que podem ficar só na nuvem. Saem do computador; marcar de
     novo faz descer (a tela avisa quanto antes de salvar).
   - Só sai do disco o que está igual na nuvem; a base é gravada antes de apagar.
+- **NN Cloud no Finder (macOS 13+)** — cartão na Visão geral: um local "NN Cloud" na barra lateral com Meu Drive,
+  Compartilhados comigo e Drives compartilhados. Tudo aparece sem ocupar espaço e só desce o que é aberto;
+  botão direito → "Remover download" devolve o espaço. Com **"Liberar o espaço depois de enviar"**, o que é colocado
+  lá sobe e sai do disco. Quem faz o trabalho é a extensão `NNCloudFP` (roda mesmo com o app fechado).
+  - **No macOS 15+ é preciso aprovar uma vez** em Ajustes do Sistema → Geral → Itens de Início e Extensões; até lá a
+    pasta aparece vazia. O app avisa e tem o botão que abre os Ajustes.
+  - Desligar tira o NN Cloud do Finder; o que ainda não tinha subido o macOS guarda numa pasta à parte.
+- **NN Cloud no Explorador de Arquivos (Windows 10 1809+)** — o mesmo cartão: a pasta `%USERPROFILE%\NN Cloud` aparece
+  no painel lateral, com Meu Drive, Compartilhados comigo e Drives compartilhados. Botão direito → "Liberar espaço" /
+  "Sempre manter neste dispositivo". **No Windows quem entrega os arquivos é o próprio app**: com ele fechado, o que
+  não está no disco não abre (por isso ele inicia com o Windows). Desligar deixa o que estava baixado como arquivo
+  comum na mesma pasta. A regra está no motor (`motor/lib/src/sob_demanda.dart`); a ponte com a Cloud Files API em
+  `windows/runner/nuvem_windows.cpp`.
 - **Proteções contra perda de dados**:
   - um marcador `.nncloud` na raiz: pasta sumida ou disco desconectado **para** a sincronização, nunca apaga nada;
   - diário local perdido (app reinstalado): **junção segura**, sem exclusão em lado nenhum até um ciclo limpo;
@@ -89,6 +105,17 @@ xcrun notarytool store-credentials NNCLOUD --apple-id <e-mail da conta Apple> --
 ```
 
 Depois disso, o mesmo script envia, espera a aprovação e grampeia o resultado no DMG.
+
+A extensão do Finder (`NNCloudFP.appex`) é assinada pelo mesmo script, antes do app, com
+`macos/NNCloudFP/NNCloudFP.entitlements` (sandbox, rede e o App Group `52YUD97UMR.br.com.nortonnunes.nncloud`).
+Se mexer no projeto Xcode e a extensão sumir, rode de novo `scripts/adicionar-extensao-fp.rb` (com a gem `xcodeproj`
+do CocoaPods).
+
+**Testar o Finder sem mexer no NN Cloud instalado**: troque `NNCLOUD_ID` em `macos/Runner/Configs/AppInfo.xcconfig`
+para `br.com.nortonnunes.nncloud.teste` (e **volte depois**), gere com
+`DART_DEFINES="--dart-define=NNCLOUD_TESTE=true" SEM_DMG=1 scripts/empacotar-macos.sh`, copie o app para
+`~/Applications` e abra com `NNCLOUD_TOKEN=<token> NNCLOUD_API=<api> NNCLOUD_FP=1`. Para remover o domínio de teste,
+abra de novo com `NNCLOUD_FP=0` (só o app dono remove o domínio — apagar o app não basta).
 
 ⚠️ Abrir o `.app` de `build/` sem passar pelo script falha com "different Team IDs": com o runtime endurecido, todos
 os frameworks precisam da mesma assinatura do app, e é o script que faz isso.

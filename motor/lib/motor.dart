@@ -9,4 +9,6 @@ export 'src/planejador.dart';
 export 'src/api.dart';
 export 'src/diario.dart';
 export 'src/sincronizador.dart';
+export 'src/sob_demanda.dart';
+export 'src/transferencia.dart';
 export 'src/varredura.dart';

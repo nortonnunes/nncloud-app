@@ -134,6 +134,15 @@ class Api {
       ((await _m('POST', 'itens/lixeira', corpo: {'ids': ids, 'confirmado': confirmado ? 1 : 0}))['itens'] as List).cast<Map<String, dynamic>>();
   Future<Map<String, dynamic>> baixar(int id) => _m('GET', 'itens/$id/baixar');
 
+  // ---------- Domínio (sob demanda: Finder / Explorer) ----------
+  // Identificadores: raiz, meu, comigo, drives, e<id> (drive), i<id> (item).
+  Future<Map<String, dynamic>> fpItem(String id) async =>
+      ((await _m('GET', 'fp/item', query: {'id': id}))['item'] as Map).cast<String, dynamic>();
+  Future<Map<String, dynamic>> fpFilhos(String id, int depoisDe) =>
+      _m('GET', 'fp/filhos', query: {'id': id, 'depois_de': '$depoisDe'});
+  Future<String> fpAncora() async => (await _m('GET', 'fp/ancora'))['ancora'] as String;
+  Future<Map<String, dynamic>> fpMudancas(String ancora) => _m('POST', 'fp/mudancas', corpo: {'ancora': ancora});
+
   // ---------- Envios ----------
   Future<Map<String, dynamic>> iniciarEnvio(Map<String, dynamic> d) => _m('POST', 'envios', corpo: d);
   Future<Map<String, dynamic>> estadoEnvio(String id, {int de = 1}) => _m('GET', 'envios/$id', query: {'de': '$de'});
@@ -164,7 +173,9 @@ class Api {
   }
 
   /// GET de um arquivo direto do S3 para um arquivo local (com Range para retomar).
-  Future<int> baixarPara(String url, IOSink destino, {int inicio = 0, void Function(int)? aoReceber}) async {
+  /// ⚠️ Grava cada bloco no arquivo ANTES de avisar [aoReceber]: quem acompanha
+  /// (o Windows, no sob demanda) lê do arquivo enquanto ele ainda baixa.
+  Future<int> baixarPara(String url, RandomAccessFile destino, {int inicio = 0, void Function(int)? aoReceber}) async {
     try {
       final req = await _http.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 30));
       if (inicio > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$inicio-');
@@ -174,7 +185,7 @@ class Api {
         return res.statusCode;
       }
       await for (final b in res.timeout(const Duration(seconds: 90))) {
-        destino.add(b);
+        destino.writeFromSync(b);
         aoReceber?.call(b.length);
       }
       return res.statusCode;

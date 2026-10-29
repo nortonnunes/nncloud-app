@@ -62,6 +62,7 @@ Controle controleFalso(Armazenamento arm) {
     ..bytesSoNaNuvem = 912680550
     ..aguardandoLiberar = 2;
   c.resultados = {1: r1, 2: r2, 3: r3};
+  c.windows = false;   // os renders são os do Mac, em qualquer sistema
   c.aguardando.add(ExclusaoEmMassa(2, 64, 0, 64, ['2025/janeiro.pdf', '2025/fevereiro.pdf', '2025/março.pdf']));
   for (final (t, cam) in [('enviado', 'Contratos/2026/proposta.pdf'), ('baixado', 'Financeiro/fluxo de caixa.xlsx'), ('conflito', 'Relatório (conflito de NOTEBOOK-ANA 2026-10-28 14h30).docx')]) {
     c.atividade.add(LinhaAtividade(t, cam, par: 1, quando: DateTime(2026, 10, 28, 14, 30)));
@@ -121,6 +122,20 @@ void main() {
             escuro: escuro, tamanho: i == 0 ? const Size(1000, 900) : i == 1 ? const Size(1000, 1080) : const Size(1000, 700));
       });
     }
+  }
+
+  // O cartão "NN Cloud no Finder": ligado e aprovado × ligado esperando a aprovação do macOS.
+  for (final (aprovado, escuro, windows) in [(true, false, false), (false, false, false), (false, true, false), (true, false, true)]) {
+    final nome = windows ? 'explorer_windows' : 'finder_${aprovado ? 'aprovado' : 'pendente'}${escuro ? '_escuro' : ''}';
+    testWidgets(nome, (t) async {
+      final c = controleFalso(arm)
+        ..windows = windows
+        ..fpSuportado = true
+        ..fpLigado = true
+        ..fpAprovado = aprovado;
+      c.aguardando.clear();
+      await tela(t, nome, Casca(c, ValueNotifier(ThemeMode.light), ValueNotifier(0)), escuro: escuro, tamanho: const Size(1000, 1250));
+    });
   }
 
   testWidgets('opcoes da pasta', (t) async {

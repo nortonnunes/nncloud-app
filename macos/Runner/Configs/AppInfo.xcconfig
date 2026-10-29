@@ -4,6 +4,10 @@
 
 PRODUCT_NAME = NN Cloud
 
-PRODUCT_BUNDLE_IDENTIFIER = br.com.nortonnunes.nncloud
+// O identificador do app; a extensão do Finder é "$(NNCLOUD_ID).fp" (tem de começar
+// pelo do app). A verificação automática compila com outro (…nncloud.teste) para não
+// tocar no NN Cloud instalado.
+NNCLOUD_ID = br.com.nortonnunes.nncloud
+PRODUCT_BUNDLE_IDENTIFIER = $(NNCLOUD_ID)
 
 PRODUCT_COPYRIGHT = Copyright © 2026 Norton Nunes. Todos os direitos reservados.

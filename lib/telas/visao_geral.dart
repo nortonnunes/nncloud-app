@@ -120,6 +120,7 @@ class TelaVisaoGeral extends StatelessWidget {
               ]),
             ),
           ),
+          if (c.fpSuportado) ...[const SizedBox(height: 20), _Finder(c)],
           const SizedBox(height: 20),
           Text('Atividade recente', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -223,3 +224,116 @@ String _rotulo(String t) => switch (t) {
       'pausado' => 'Pasta parada',
       _ => t,
     };
+
+
+/// "NN Cloud" no Finder: o NN Cloud inteiro (Meu Drive, Compartilhados, Drives) na
+/// barra lateral do Finder, sob demanda — só desce o que for aberto.
+class _Finder extends StatelessWidget {
+  final Controle c;
+  const _Finder(this.c);
+
+  String get _local => c.windows ? 'Explorador de Arquivos' : 'Finder';
+
+  Future<void> _alternar(BuildContext context, bool ligar) async {
+    if (!ligar) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text('Tirar o NN Cloud do $_local?'),
+          content: Text(c.windows
+              ? 'O NN Cloud some do painel lateral do Explorador de Arquivos. Os arquivos continuam na nuvem; '
+                  'o que estava baixado continua na pasta "NN Cloud" como arquivo comum, e o resto sai deste computador.'
+              : 'O NN Cloud some da barra lateral do Finder. Os arquivos continuam na nuvem; '
+                  'o que estava baixado sai deste Mac. Se algo ainda não tinha subido, o macOS guarda numa pasta à parte.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('Tirar do $_local')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    final (erro, guardado) = await c.ligarSobDemanda(ligar);
+    if (!context.mounted) return;
+    final msg = erro ??
+        (guardado == null
+            ? null
+            : c.windows
+                ? 'O que estava baixado continua em: $guardado'
+                : 'O que ainda não tinha subido foi guardado em: $guardado');
+    if (msg != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.cloud_outlined, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(child: Text('NN Cloud no $_local', style: Theme.of(context).textTheme.titleMedium)),
+            Switch(value: c.fpLigado, onChanged: (v) => _alternar(context, v)),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+              c.windows
+                  ? (c.fpLigado
+                      ? 'Meu Drive, Compartilhados comigo e Drives compartilhados aparecem no painel lateral do Explorador de '
+                          'Arquivos. Tudo fica na nuvem e só desce o que você abrir — com este app aberto. Botão direito → '
+                          '"Liberar espaço" devolve o espaço; "Sempre manter neste dispositivo" deixa baixado.'
+                      : 'Mostra o NN Cloud inteiro no Explorador de Arquivos sem ocupar espaço: os arquivos aparecem com o '
+                          'ícone de nuvem e só descem quando você abre.')
+                  : (c.fpLigado
+                      ? 'Meu Drive, Compartilhados comigo e Drives compartilhados aparecem na barra lateral do Finder. '
+                          'Tudo fica na nuvem e só desce o que você abrir. Botão direito → "Remover download" libera o espaço.'
+                      : 'Mostra o NN Cloud inteiro no Finder sem ocupar espaço: os arquivos aparecem com o ícone de nuvem e só '
+                          'descem quando você abre.'),
+              style: TextStyle(color: Cores.fraco(context))),
+          if (c.fpErro != null) ...[
+            const SizedBox(height: 8),
+            Text(c.fpErro!, style: TextStyle(color: Cores.situacao(context, 'erro'))),
+          ],
+          if (c.fpLigado && !c.fpAprovado) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Cores.situacao(context, 'alerta').withValues(alpha: 0.13), borderRadius: BorderRadius.circular(12)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.warning_amber_rounded, color: Cores.situacao(context, 'alerta')),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Falta aprovar nos Ajustes do Sistema', style: TextStyle(fontWeight: FontWeight.w700))),
+                ]),
+                const SizedBox(height: 6),
+                const Text('O macOS só deixa o NN Cloud aparecer no Finder depois que você aprova. Em Ajustes do Sistema → '
+                    'Geral → Itens de Início e Extensões, ligue o NN Cloud em "Extensões do Provedor de Arquivos". '
+                    'Até lá a pasta aparece vazia.'),
+                const SizedBox(height: 10),
+                Wrap(spacing: 10, runSpacing: 8, children: [
+                  FilledButton.icon(onPressed: c.abrirAjustesFinder, icon: const Icon(Icons.settings_outlined), label: const Text('Abrir os Ajustes do Sistema')),
+                  OutlinedButton(onPressed: c.reconferirFp, child: const Text('Já aprovei')),
+                ]),
+              ]),
+            ),
+          ],
+          if (c.fpLigado && c.fpAprovado) ...[
+            const SizedBox(height: 6),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: c.fpLiberar,
+              onChanged: c.definirLiberarAposEnviar,
+              title: const Text('Liberar o espaço depois de enviar'),
+              subtitle: Text('O que você coloca no NN Cloud pelo $_local sobe e fica só na nuvem.'),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(onPressed: c.abrirNoFinder, icon: const Icon(Icons.open_in_new), label: Text('Abrir no $_local')),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+}

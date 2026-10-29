@@ -31,7 +31,7 @@ if [ -z "$IDENTIDADE" ]; then
 fi
 echo "Assinando com: $IDENTIDADE"
 
-flutter build macos --release
+flutter build macos --release ${DART_DEFINES:-}
 
 assinar() { codesign --force --timestamp --options runtime --sign "$IDENTIDADE" "$@"; }
 
@@ -40,13 +40,23 @@ find "$APP/Contents/Frameworks" -type f \( -name "*.dylib" -o -name "*.so" \) -p
 for fw in "$APP/Contents/Frameworks/"*.framework; do
   assinar "$fw"
 done
-# 2. O app, com os direitos do Release.
+# 2. A extensão do "NN Cloud" no Finder (File Provider), com os direitos DELA
+#    (sandbox, rede e o grupo do time). Antes do app: o selo do app cobre a extensão.
+for ext in "$APP/Contents/PlugIns/"*.appex; do
+  [ -e "$ext" ] || continue
+  assinar --entitlements "macos/NNCloudFP/NNCloudFP.entitlements" "$ext"
+done
+# 3. O app, com os direitos do Release.
 assinar --entitlements "$DIREITOS" "$APP"
 
 codesign --verify --strict --deep --verbose=2 "$APP"
 echo "Assinatura conferida."
+if [ "${SEM_DMG:-0}" = "1" ]; then
+  echo "SEM_DMG=1: app assinado em $APP (sem DMG)."
+  exit 0
+fi
 
-# 3. DMG (arrastar para Aplicativos).
+# 4. DMG (arrastar para Aplicativos).
 mkdir -p "$SAIDA"
 TMP=$(mktemp -d)
 cp -R "$APP" "$TMP/"
@@ -56,7 +66,7 @@ hdiutil create -volname "NN Cloud $VERSAO" -srcfolder "$TMP" -ov -format UDZO "$
 rm -rf "$TMP"
 codesign --force --timestamp --sign "$IDENTIDADE" "$DMG"
 
-# 4. Notarização (opcional: só se o perfil existir no chaveiro).
+# 5. Notarização (opcional: só se o perfil existir no chaveiro).
 if xcrun notarytool history --keychain-profile "$PERFIL" >/dev/null 2>&1; then
   echo "Enviando para a notarização da Apple (perfil $PERFIL)…"
   xcrun notarytool submit "$DMG" --keychain-profile "$PERFIL" --wait

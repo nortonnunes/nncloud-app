@@ -18,6 +18,8 @@ import '../config.dart';
 import '../widgets/cabecalho.dart' show bytesTexto;
 import 'armazenamento.dart';
 import 'notificacoes.dart';
+import 'fp_windows.dart';
+import 'sob_demanda.dart';
 import 'sistema.dart';
 
 enum Situacao { desconectado, conectando, ok, sincronizando, offline, pausado, erro }
@@ -46,6 +48,20 @@ class Controle extends ChangeNotifier {
   final List<ExclusaoEmMassa> aguardando = [];
   bool janelaVisivel = true;
 
+  // "NN Cloud" no Finder (sob demanda).
+  bool fpSuportado = false, fpLigado = false;
+  /// Ligado mas ainda não aprovado em Ajustes do Sistema (macOS 15+): o Finder mostra a
+  /// pasta, e ela não carrega nada até a pessoa ligar lá.
+  bool fpAprovado = true;
+  /// Windows: o "NN Cloud" no Explorador de Arquivos (o app entrega os arquivos).
+  SobDemandaWindows? _win;
+  /// A tela fala do Explorador de Arquivos (Windows) ou do Finder (Mac). Campo, e não
+  /// `Platform.isWindows` direto, para os testes de tela desenharem as duas versões.
+  bool windows = Platform.isWindows;
+  final List<String> fpProblemas = [];
+  String? fpErro;
+  bool get fpLiberar => arm.pref<bool>('fp_liberar', false);
+
   // Conexão por código.
   String? codigo;
   String? urlConectar;
@@ -70,7 +86,7 @@ class Controle extends ChangeNotifier {
   String get plataforma => Platform.isWindows ? 'windows' : 'macos';
 
   int get pendentes => resultados.values.fold(0, (s, r) => s + r.pendentes);
-  List<String> get problemas => [for (final r in resultados.values) ...r.problemas];
+  List<String> get problemas => [for (final r in resultados.values) ...r.problemas, ...fpProblemas];
   int get arquivosSincronizados {
     var n = 0;
     for (final pr in pares) {
@@ -83,7 +99,20 @@ class Controle extends ChangeNotifier {
   // Início, conexão e desconexão
   // ===================================================================
 
+  /// Só nas compilações de TESTE (`--dart-define=NNCLOUD_TESTE=true`): o token e a
+  /// API vêm do ambiente, para a verificação automática do "NN Cloud" no Finder.
+  /// Nas compilações normais o compilador elimina este trecho.
+  static const _teste = bool.fromEnvironment('NNCLOUD_TESTE');
+
   Future<void> iniciar() async {
+    if (_teste) {
+      final tk = Platform.environment['NNCLOUD_TOKEN'], ap = Platform.environment['NNCLOUD_API'];
+      if (tk != null && ap != null) {
+        arm.definir('api', ap);
+        arm.usarTokenFixo = true;
+        await arm.gravarToken(tk);
+      }
+    }
     final t = await arm.token();
     if (t == null) {
       situacao = Situacao.desconectado;
@@ -101,6 +130,7 @@ class Controle extends ChangeNotifier {
       eu = await api!.eu();
       await _recarregarPares();
       _criarSincronizador();
+      await _atualizarFp();
       situacao = pausado ? Situacao.pausado : Situacao.ok;
       mensagem = null;
       _agendar(const Duration(seconds: 1));
@@ -199,6 +229,14 @@ class Controle extends ChangeNotifier {
 
   Future<void> _esquecerConta(String? msg) async {
     _timer?.cancel();
+    // O "NN Cloud" no Finder sai junto (o que não tinha subido fica guardado pelo macOS).
+    if (Platform.isWindows) {
+      if (fpLigado) await _win?.desligar();
+    } else {
+      if (fpLigado) await SobDemanda.desligar();
+      await SobDemanda.apagarCredenciais();
+    }
+    fpLigado = false;
     for (final o in _observadores.values) {
       await o.cancel();
     }
@@ -238,6 +276,114 @@ class Controle extends ChangeNotifier {
             soNuvem: {for (final x in (pr['so_nuvem'] as List?) ?? const []) if (x is int) x},
           ),
       ];
+
+  // ===================================================================
+  // "NN Cloud" no Finder (sob demanda)
+  // ===================================================================
+
+  Future<void> _atualizarFp() async {
+    if (Platform.isWindows) return _atualizarFpWindows();
+    final (sup, lig, apr) = await SobDemanda.estado();
+    fpSuportado = sup;
+    fpLigado = lig;
+    fpAprovado = apr;
+    if (lig) {
+      final t = await arm.token();
+      if (t != null) await SobDemanda.credenciais(api: baseApi, token: t, liberar: fpLiberar);
+    }
+    // Só na versão de teste: NNCLOUD_FP=1 liga ao abrir e NNCLOUD_FP=0 desliga (limpeza).
+    if (_teste && Platform.environment['NNCLOUD_FP'] == '1' && !lig) await ligarSobDemanda(true);
+    if (_teste && Platform.environment['NNCLOUD_FP'] == '0' && lig) await ligarSobDemanda(false);
+  }
+
+  SobDemandaWindows get _windows => _win ??= SobDemandaWindows(arm.dados, _aoEventoFp);
+
+  /// Windows: o NN Cloud já estava no Explorador? Então conecta e põe em dia.
+  Future<void> _atualizarFpWindows() async {
+    fpSuportado = await SobDemandaWindows.suportado();
+    fpAprovado = true;
+    final raiz = fpSuportado ? await SobDemandaWindows.registrado() : null;
+    fpLigado = raiz != null;
+    if (raiz != null && _win?.provedor == null && api != null) {
+      fpErro = await _windows.iniciar(raiz, api: api!, computador: nomeComputador, liberar: fpLiberar);
+    }
+  }
+
+  void _aoEventoFp(EventoSobDemanda e) {
+    final tipo = e.tipo == 'problema' ? 'erro' : e.tipo;
+    atividade.insert(0, LinhaAtividade(tipo, e.caminho, detalhe: e.detalhe));
+    if (atividade.length > 300) atividade.removeLast();
+    if (e.tipo == 'problema') {
+      fpProblemas.insert(0, e.caminho.isEmpty ? (e.detalhe ?? '') : '${e.caminho}: ${e.detalhe ?? ''}');
+      if (fpProblemas.length > 50) fpProblemas.removeLast();
+    }
+    notifyListeners();
+  }
+
+  /// Liga/desliga o "NN Cloud" no Finder. Devolve o erro (null = ok) e, ao desligar,
+  /// a pasta onde o macOS guardou o que ainda não tinha subido.
+  Future<(String?, String?)> ligarSobDemanda(bool ligar) async {
+    fpErro = null;
+    if (Platform.isWindows) {
+      if (ligar) {
+        if (api == null) return ('Conecte este computador primeiro.', null);
+        final conta = '${((eu?['pessoa'] as Map?) ?? {})['email'] ?? 'conta'}';
+        final e = await _windows.ligar(api: api!, conta: conta, computador: nomeComputador, liberar: fpLiberar);
+        fpErro = e;
+        fpLigado = e == null;
+        notifyListeners();
+        return (e, null);
+      }
+      final raiz = _win?.provedor?.raiz ?? SobDemandaWindows.raizPadrao();
+      final e = await _windows.desligar();
+      fpErro = e;
+      if (e == null) {
+        fpLigado = false;
+        fpProblemas.clear();
+      }
+      notifyListeners();
+      final ficou = e == null && Directory(raiz).existsSync() && Directory(raiz).listSync().isNotEmpty;
+      return (e, ficou ? raiz : null);
+    }
+    if (ligar) {
+      final t = await arm.token();
+      if (t == null) return ('Conecte este computador primeiro.', null);
+      final e = await SobDemanda.ligar(api: baseApi, token: t, liberar: fpLiberar);
+      fpErro = e;
+      fpLigado = e == null;
+      if (fpLigado) fpAprovado = (await SobDemanda.estado()).$3;
+      notifyListeners();
+      return (e, null);
+    }
+    final (e, guardado) = await SobDemanda.desligar();
+    fpErro = e;
+    if (e == null) fpLigado = false;
+    notifyListeners();
+    return (e, guardado);
+  }
+
+  Future<void> definirLiberarAposEnviar(bool v) async {
+    arm.definir('fp_liberar', v);
+    if (Platform.isWindows) {
+      _win?.liberar = v;
+      notifyListeners();
+      return;
+    }
+    final t = await arm.token();
+    if (fpLigado && t != null) await SobDemanda.credenciais(api: baseApi, token: t, liberar: v);
+    notifyListeners();
+  }
+
+  Future<void> abrirNoFinder() => Platform.isWindows ? _windows.abrir() : SobDemanda.abrir();
+
+  Future<void> abrirAjustesFinder() => SobDemanda.abrirAjustes();
+
+  /// Reconfere a aprovação (a pessoa volta dos Ajustes do Sistema para o app).
+  Future<void> reconferirFp() async {
+    final antes = (fpLigado, fpAprovado);
+    await _atualizarFp();
+    if (antes != (fpLigado, fpAprovado)) notifyListeners();
+  }
 
   /// Pasta de envio (tudo sobe e sai do computador) ou espelho (iguais nos
   /// dois sentidos), e as subpastas que ficam só na nuvem neste computador.
@@ -417,6 +563,14 @@ class Controle extends ChangeNotifier {
         ultimoSync = DateTime.now();
       }
       await _avisos(r);
+      if (fpLigado) {
+        if (Platform.isWindows) {
+          await _win?.ciclo();            // mudanças da nuvem + o que ficou pendente aqui
+        } else {
+          if (!fpAprovado) await reconferirFp();
+          await SobDemanda.sinalizar();   // a extensão pergunta as mudanças agora
+        }
+      }
       eu = await api!.eu().catchError((_) => eu!);
       await _limparLixeirasLocais();
     } on ApiErro catch (e) {

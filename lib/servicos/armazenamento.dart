@@ -50,7 +50,13 @@ class Armazenamento {
     tmp.renameSync(_arquivoPrefs.path);
   }
 
+  /// Só na verificação automática (compilação de teste): o token fica na memória e o
+  /// chaveiro de quem usa o computador não é tocado.
+  String? tokenFixo;
+  bool usarTokenFixo = false;
+
   Future<String?> token() async {
+    if (usarTokenFixo) return tokenFixo;
     try {
       return await _seguro.read(key: _chaveToken);
     } catch (_) {
@@ -59,6 +65,10 @@ class Armazenamento {
   }
 
   Future<void> gravarToken(String? t) async {
+    if (usarTokenFixo) {
+      tokenFixo = t;
+      return;
+    }
     if (t == null) {
       await _seguro.delete(key: _chaveToken);
     } else {

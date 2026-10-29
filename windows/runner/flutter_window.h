@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "nuvem_windows.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -28,6 +29,9 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // "NN Cloud" no Explorer (Cloud Files API), canal "nncloud/fp".
+  std::unique_ptr<NuvemWindows> nuvem_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

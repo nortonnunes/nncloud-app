@@ -32,6 +32,7 @@ import 'impressao.dart';
 import 'modelos.dart';
 import 'nomes.dart';
 import 'planejador.dart';
+import 'transferencia.dart';
 import 'varredura.dart';
 
 const String pastaLixeiraLocal = '.nncloud-lixeira';
@@ -782,14 +783,7 @@ class _Execucao {
       return;
     }
     d.impressoes[rel] = ImpressaoCache(st2.size, st2.modified.millisecondsSinceEpoch, imp.hex);
-    final corpo = <String, dynamic>{
-      'nome': nomeDe(rel),
-      'tamanho': imp.tamanho,
-      'impressao': imp.hex,
-      'partes': imp.partes,
-      'mtime_ms': st2.modified.millisecondsSinceEpoch,
-      'mime': 'application/octet-stream',
-    };
+    final corpo = <String, dynamic>{'nome': nomeDe(rel)};
     if (itemId != null) {
       corpo['item_id'] = itemId;
       corpo['base_versao'] = baseVersao;
@@ -802,59 +796,13 @@ class _Execucao {
         corpo['pasta_id'] = paiId;
       }
     }
-    var ini = await api.iniciarEnvio(corpo);
-    Map<String, dynamic> fim;
-    if (ini['reaproveitado'] == true) {
-      fim = {'item': ini['item'], 'evento': ini['evento']};
-    } else {
-      final envio = ini['envio'] as String;
-      var urls = (ini['partes'] as List).cast<Map<String, dynamic>>();
-      final n = ini['n_partes'] as int;
-      final feitas = <int>{};
-      var tentativas = 0;
-      while (feitas.length < n) {
-        if (urls.length < n - feitas.length || urls.isEmpty) {
-          final e = await api.estadoEnvio(envio, de: 1);
-          feitas.addAll(((e['recebidas'] as List?) ?? []).cast<int>());
-          urls = ((e['partes'] as List?) ?? []).cast<Map<String, dynamic>>();
-          if (urls.isEmpty && feitas.length < n) throw const ApiErro(0, 'O servidor não devolveu os endereços de envio.');
-        }
-        var falhou = false;
-        for (final u in urls) {
-          final num = u['n'] as int;
-          if (feitas.contains(num)) continue;
-          final inicio = u['inicio'] as int, tam = u['tamanho'] as int;
-          final code = await api.putParte(u['url'] as String, _mapa(u['cabecalhos']).map((k, v) => MapEntry(k, '$v')),
-              f.openRead(inicio, inicio + tam), tam);
-          if (code == 200) {
-            feitas.add(num);
-            s._ev(Evento('progresso', par: c.id, caminho: rel, tamanho: tam));
-          } else {
-            falhou = true;
-            if (code == 400 || code == 403) break;   // URL vencida ou arquivo mudou: pede de novo
-          }
-        }
-        if (falhou) {
-          if (++tentativas > 6) throw const ApiErro(0, 'O envio direto ao armazenamento falhou várias vezes.');
-          await Future<void>.delayed(Duration(seconds: 1 << (tentativas - 1)));
-          urls = [];
-        }
-      }
-      // Arquivo mudou enquanto subia? Então não conclui com conteúdo misturado.
-      final st3 = f.statSync();
-      if (st3.size != st2.size || st3.modified != st2.modified) {
-        await api.cancelarEnvio(envio);
-        r.pendentes++;
-        return;
-      }
-      try {
-        fim = await api.concluirEnvio(envio);
-      } on ApiErro catch (e) {
-        if (e.status != 409) rethrow;
-        ini = await api.estadoEnvio(envio);
-        fim = await api.concluirEnvio(envio);
-      }
+    final concluido = await enviarConteudo(api, f, imp, st2, corpo,
+        aoEnviar: (tam) => s._ev(Evento('progresso', par: c.id, caminho: rel, tamanho: tam)));
+    if (concluido == null) {
+      r.pendentes++;   // mudou enquanto subia: fica para o próximo ciclo
+      return;
     }
+    final fim = {'item': concluido.item, 'evento': concluido.evento};
     final item = _daResposta((fim['item'] as Map).cast<String, dynamic>());
     d.nuvem.por(item);
     var destino = rel;
@@ -893,29 +841,12 @@ class _Execucao {
       }
     }
     alvo.parent.createSync(recursive: true);
-    final b = await api.baixar(item.id);
     final tmp = File(p.join(alvo.parent.path, '$prefixoTemporario${DateTime.now().microsecondsSinceEpoch}'));
-    if (b['url'] == null) {
-      tmp.writeAsBytesSync(const []);
-    } else {
-      var tentativas = 0;
-      while (true) {
-        final sink = tmp.openWrite();
-        final code = await api.baixarPara(b['url'] as String, sink, aoReceber: (n) => s._ev(Evento('progresso', par: c.id, caminho: rel, tamanho: n)));
-        await sink.close();
-        if (code == 200) break;
-        if (++tentativas > 5) {
-          if (tmp.existsSync()) tmp.deleteSync();
-          throw ApiErro(0, 'O download falhou (código $code).');
-        }
-        await Future<void>.delayed(Duration(seconds: 1 << (tentativas - 1)));
-      }
-    }
-    final imp = await Impressao.deArquivo(tmp);
-    if (imp == null || (item.impressao != null && imp.hex != item.impressao) || imp.tamanho != (b['tamanho'] as int? ?? imp.tamanho)) {
-      tmp.deleteSync();
-      throw const ApiErro(422, 'O arquivo baixado não confere com a nuvem (vai tentar de novo).');
-    }
+    var ultimo = 0;
+    final imp = await baixarConteudo(api, item.id, tmp, impressaoEsperada: item.impressao, aoReceber: (total) {
+      s._ev(Evento('progresso', par: c.id, caminho: rel, tamanho: total - ultimo));
+      ultimo = total;
+    });
     if (item.mtimeMs != null) {
       tmp.setLastModifiedSync(DateTime.fromMillisecondsSinceEpoch(item.mtimeMs!));
     }

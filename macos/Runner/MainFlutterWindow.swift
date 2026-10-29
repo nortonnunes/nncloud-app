@@ -40,6 +40,10 @@ class MainFlutterWindow: NSWindow {
       }
     }
 
+    if #available(macOS 13.0, *) {
+      SobDemanda.registrar(flutterViewController.engine.binaryMessenger)
+    }
+
     super.awakeFromNib()
   }
 }
