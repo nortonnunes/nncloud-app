@@ -167,6 +167,11 @@ Mude a versão em **dois lugares**: `pubspec.yaml` (`version:`) e `lib/config.da
   - **Ícone na barra** pelo AppIndicator (no GNOME puro, a extensão "AppIndicator"; o Ubuntu já traz). Sem ele, o app
     continua sincronizando com a janela fechada; abrir de novo pelo menu de aplicativos mostra a janela.
   - **Iniciar com o sistema**: `~/.config/autostart/br.com.nortonnunes.nncloud.desktop` (`--oculto`).
+  - **Abrir com o próprio usuário, nunca com `sudo`/root**: como root não há a sessão D-Bus (notificações), o
+    chaveiro nem a bandeja de quem está logado — o app segue, mas sem esses recursos (e com o token em `/root`).
+  - **Escolher pasta** usa o `zenity` (GNOME) ou o `kdialog` (KDE) — dependência do `.deb`. Sem nenhum dos dois, o app
+    pede o caminho digitado.
+  - A bandeja e as notificações NUNCA impedem a sincronização: sem AppIndicator ou sem D-Bus, o app abre e sincroniza.
   - **Dados do app**: `~/.local/share/br.com.nortonnunes.nncloud/NN Cloud/`.
   - O Linux diferencia maiúsculas: dois arquivos `Foto.jpg` e `foto.jpg` na mesma pasta não convivem no NN Cloud (que
     segue a regra do Windows e do macOS) — o segundo aparece em **Problemas**.

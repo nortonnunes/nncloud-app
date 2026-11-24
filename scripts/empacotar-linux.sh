@@ -75,7 +75,7 @@ Priority: optional
 Architecture: $arq_deb
 Maintainer: ${MANTENEDOR:-Norton Nunes <ti@nortonnunes.com.br>}
 Installed-Size: $tamanho_kb
-Depends: libgtk-3-0, libsecret-1-0, libjsoncpp25 | libjsoncpp24 | libjsoncpp1, libayatana-appindicator3-1 | libappindicator3-1
+Depends: libgtk-3-0, libsecret-1-0, libjsoncpp25 | libjsoncpp24 | libjsoncpp1, libayatana-appindicator3-1 | libappindicator3-1, zenity | kdialog
 Recommends: gnome-keyring | kwalletmanager, xdg-utils
 Homepage: https://nnconecta.com/cloud
 Description: NN Cloud — sincronização de pastas com o NN Conecta
@@ -109,6 +109,12 @@ dados="\${XDG_DATA_HOME:-\$HOME/.local/share}"
 destino="\$dados/nncloud"
 atalho="\$dados/applications/$ID.desktop"
 icone="\$dados/icons/hicolor/256x256/apps/$ID.png"
+# O app é de cada USUÁRIO (sessão gráfica, chaveiro, notificações): como root, nada
+# disso existe — o token iria para /root e as notificações falhariam.
+if [ "\$(id -u)" = "0" ]; then
+  echo "Rode sem sudo: o NN Cloud é instalado para o seu usuário." >&2
+  exit 1
+fi
 if [ "\${1:-}" = "--remover" ]; then
   rm -rf "\$destino" "\$atalho" "\$icone" "\${XDG_CONFIG_HOME:-\$HOME/.config}/autostart/$ID.desktop"
   echo "NN Cloud removido. (Os arquivos sincronizados e as configurações continuam no computador.)"
@@ -125,6 +131,9 @@ DESK
 sed -i "s#__DESTINO__#\$destino#" "\$atalho"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q "\$dados/applications" || true
 echo "NN Cloud $versao instalado. Abra pelo menu de aplicativos (ou rode \$destino/nncloud)."
+if ! command -v zenity >/dev/null 2>&1 && ! command -v kdialog >/dev/null 2>&1; then
+  echo "Dica: instale o pacote \"zenity\" para ter a janela de escolher pasta (sem ele, o caminho é digitado)."
+fi
 EOF
 chmod 0755 "$pasta/instalar.sh"
 cat > "$pasta/LEIA-ME.txt" <<EOF
@@ -133,9 +142,12 @@ NN Cloud $versao para Linux
 Instalar (só para você, sem sudo):   ./instalar.sh
 Remover:                             ./instalar.sh --remover
 
-Precisa de: GTK 3, libsecret (o chaveiro da sessão guarda o acesso) e, para o
-ícone na barra, o suporte a AppIndicator (no GNOME, a extensão "AppIndicator").
-No Ubuntu/Debian prefira o arquivo .deb.
+Precisa de: GTK 3, libsecret (o chaveiro da sessão guarda o acesso), zenity
+(a janela de escolher pasta) e, para o ícone na barra, o suporte a AppIndicator
+(no GNOME, a extensão "AppIndicator"). No Ubuntu/Debian prefira o arquivo .deb.
+
+Abra o NN Cloud com o SEU usuário, nunca com sudo/root: o app usa a sessão
+gráfica, o chaveiro e as notificações de quem está logado.
 EOF
 tar -C build/pacote-linux -czf "$saida/NN-Cloud-$versao-linux-$arq_flutter.tar.gz" "NN-Cloud-$versao"
 

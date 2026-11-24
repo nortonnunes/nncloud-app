@@ -60,7 +60,14 @@ Future<void> main(List<String> args) async {
   final tema = ValueNotifier<ThemeMode>(ThemeMode.values.firstWhere((m) => m.name == arm.pref<String>('tema', 'system'), orElse: () => ThemeMode.system));
 
   runApp(AppNnCloud(c, tema, aba));
-  await Bandeja(c, aba).iniciar();
+  // ⚠️ A bandeja NUNCA pode impedir a sincronização: no Linux sem AppIndicator (ou
+  // com um plugin que não implementa tudo) ela falha, e o `c.iniciar()` abaixo não
+  // rodaria — o app abriria sem sincronizar nada.
+  try {
+    await Bandeja(c, aba).iniciar();
+  } catch (e) {
+    debugPrint('Bandeja indisponível: $e');
+  }
   await c.iniciar();
 }
 
@@ -134,8 +141,12 @@ class Bandeja with TrayListener {
     c.addListener(() async {
       if (c.situacao != _ultima) {
         _ultima = c.situacao;
-        await _icone();
-        await _menu();
+        try {
+          await _icone();
+          await _menu();
+        } catch (_) {
+          // bandeja indisponível: a janela e a sincronização seguem
+        }
       }
     });
   }
@@ -155,6 +166,8 @@ class Bandeja with TrayListener {
     } else {
       await trayManager.setIcon('assets/bandeja/win_$estado.ico');
     }
+    // O tray_manager do Linux (AppIndicator) não tem texto de dica.
+    if (Platform.isLinux) return;
     await trayManager.setToolTip('NN Cloud — ${switch (c.situacao) {
       Situacao.ok => 'em dia',
       Situacao.sincronizando => 'sincronizando',

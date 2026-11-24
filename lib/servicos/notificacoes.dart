@@ -17,6 +17,14 @@ class Notificacoes {
   int _id = 0;
 
   Future<void> iniciar({void Function()? aoTocar}) async {
+    // Linux: as notificações vão pelo barramento D-Bus da SESSÃO. Sem ele (app rodando
+    // como root/sudo, sessão sem D-Bus, servidor sem desktop) o plugin falha FORA do
+    // try — numa escuta assíncrona — e o erro aparece solto no terminal. Sem barramento,
+    // o app segue sem notificação.
+    if (Platform.isLinux && !_temBarramentoDaSessao()) {
+      _pronto = false;
+      return;
+    }
     try {
       await _plugin.initialize(
         InitializationSettings(
@@ -29,6 +37,24 @@ class Notificacoes {
       _pronto = true;
     } catch (_) {
       _pronto = false;   // sem notificação não é motivo para o app não abrir
+    }
+  }
+
+  static bool _temBarramentoDaSessao() {
+    try {
+      final end = Platform.environment['DBUS_SESSION_BUS_ADDRESS'] ?? '';
+      String? caminho;
+      if (end.isEmpty) {
+        final uid = (Process.runSync('id', ['-u']).stdout as String).trim();
+        caminho = '/run/user/$uid/bus';
+      } else {
+        final m = RegExp(r'unix:path=([^,;]+)').firstMatch(end);
+        if (m == null) return true;   // abstract/tcp: deixa o plugin tentar
+        caminho = m.group(1);
+      }
+      return caminho != null && FileSystemEntity.typeSync(caminho) != FileSystemEntityType.notFound;
+    } catch (_) {
+      return false;
     }
   }
 

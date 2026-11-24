@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -136,10 +138,72 @@ class TelaPastas extends StatelessWidget {
   }
 
   Future<void> _adicionar(BuildContext context) async {
-    final pasta = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Escolha a pasta do computador');
-    if (pasta == null || !context.mounted) return;
-    await showDialog<void>(context: context, builder: (_) => _DialogoDestino(c, pasta));
+    String? pasta;
+    try {
+      pasta = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Escolha a pasta do computador');
+    } catch (_) {
+      // Linux sem o `zenity`/`kdialog` (a janela de escolher pasta do sistema): a pessoa
+      // digita o caminho.
+      if (!context.mounted) return;
+      pasta = await showDialog<String>(context: context, builder: (_) => const _DialogoCaminho());
+    }
+    final escolhida = pasta;
+    if (escolhida == null || !context.mounted) return;
+    await showDialog<void>(context: context, builder: (_) => _DialogoDestino(c, escolhida));
   }
+}
+
+/// O caminho da pasta digitado — quando o sistema não tem a janela de escolher pasta
+/// (Linux sem `zenity` nem `kdialog`).
+class _DialogoCaminho extends StatefulWidget {
+  const _DialogoCaminho();
+  @override
+  State<_DialogoCaminho> createState() => _DialogoCaminhoState();
+}
+
+class _DialogoCaminhoState extends State<_DialogoCaminho> {
+  final _campo = TextEditingController(text: '${Platform.environment['HOME'] ?? ''}/');
+  String? _erro;
+
+  @override
+  void dispose() {
+    _campo.dispose();
+    super.dispose();
+  }
+
+  void _ok() {
+    var t = _campo.text.trim();
+    if (t.startsWith('~')) t = (Platform.environment['HOME'] ?? '') + t.substring(1);
+    if (t.length > 1 && t.endsWith('/')) t = t.substring(0, t.length - 1);
+    if (t.isEmpty || !Directory(t).existsSync()) {
+      setState(() => _erro = 'Pasta não encontrada. Confira o caminho (ex.: /home/voce/Documentos).');
+      return;
+    }
+    Navigator.pop(context, t);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Caminho da pasta'),
+        content: SizedBox(
+          width: 460,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Este computador não tem a janela de escolher pasta (instale o pacote "zenity" para tê-la). '
+                'Digite o caminho da pasta:'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _campo,
+              autofocus: true,
+              decoration: InputDecoration(border: const OutlineInputBorder(), errorText: _erro, hintText: '/home/voce/Documentos'),
+              onSubmitted: (_) => _ok(),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          FilledButton(onPressed: _ok, child: const Text('Continuar')),
+        ],
+      );
 }
 
 /// Escolhe para onde a pasta vai na nuvem: o Meu Drive (numa pasta com o mesmo
