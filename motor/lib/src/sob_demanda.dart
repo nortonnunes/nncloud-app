@@ -163,6 +163,15 @@ class ProvedorSobDemanda {
   /// ele não mudar — senão o mesmo aviso voltaria a cada ciclo.
   final Map<String, String> _recusados = {};
 
+  /// Itens que falharam na volta (arquivo aberto em outro programa, fixado, nome que o
+  /// Windows recusa…). ⚠️ Um item ruim NÃO para a volta: antes, uma falha no Meu Drive
+  /// abortava tudo, "Compartilhados comigo" e "Drives compartilhados" nunca eram
+  /// preenchidos e a volta recomeçava a cada ciclo (caso real, nov/2026). Com falhas, a
+  /// âncora vale assim mesmo e uma nova volta completa vem em [intervaloRevolta].
+  int _falhas = 0;
+  DateTime? _proximoCompleto;
+  Duration intervaloRevolta = const Duration(minutes: 10);
+
   ProvedorSobDemanda({
     required this.api,
     required this.nativo,
@@ -295,7 +304,8 @@ class ProvedorSobDemanda {
 
   /// Põe o disco igual à nuvem: a árvore inteira na primeira vez, depois só as mudanças.
   Future<void> sincronizar({bool completo = false}) => _serial(() async {
-        if (completo || ancora == null || _completoPendente) {
+        final revolta = _proximoCompleto != null && !DateTime.now().isBefore(_proximoCompleto!);
+        if (completo || ancora == null || _completoPendente || revolta) {
           await _completo();
         } else {
           await _mudancas();
@@ -305,12 +315,48 @@ class ProvedorSobDemanda {
   Future<void> _completo() async {
     final a = await api.fpAncora();   // ANTES de percorrer: o que mudar durante a volta vem depois
     _completoPendente = false;
+    _falhas = 0;
     indice
       ..clear()
       ..['raiz'] = '';
     await _popular('raiz', '');
+    // Vale MESMO com itens que falharam (senão nada mais chegaria): eles são tentados
+    // de novo na volta completa seguinte, daqui a [intervaloRevolta].
     ancora = a;
+    _proximoCompleto = _falhas > 0 ? DateTime.now().add(intervaloRevolta) : null;
     _salvar();
+  }
+
+  /// Sem rede, servidor fora ou computador desconectado: isso interrompe a volta (a
+  /// próxima tenta tudo). Qualquer outro erro é do ITEM e a volta segue.
+  static bool _interrompe(Object e) => e is ApiErro && (e.transitorio || e.desconectado);
+
+  void _falhou(String rel, Object e) {
+    _falhas++;
+    _proximoCompleto ??= DateTime.now().add(intervaloRevolta);
+    _ev('problema', rel, 'não foi possível pôr no computador: $e');
+  }
+
+  /// Um item (ou uma subpasta inteira): o erro dele vira problema e a volta continua.
+  Future<void> _isolado(String rel, Future<void> Function() f) async {
+    try {
+      await f();
+    } catch (e) {
+      if (_interrompe(e)) rethrow;
+      _falhou(rel, e);
+    }
+  }
+
+  /// Placeholders em lote; se o lote falha, um a um — o ruim vira problema, os outros aparecem.
+  Future<void> _criar(String rel, List<NovoPlaceholder> novos) async {
+    try {
+      await nativo.criarPlaceholders(_abs(rel), novos);
+    } catch (e) {
+      if (_interrompe(e)) rethrow;
+      for (final n in novos) {
+        await _isolado(_junta(rel, n.nome), () => nativo.criarPlaceholders(_abs(rel), [n]));
+      }
+    }
   }
 
   Future<List<ItemFp>> _filhos(String id) async {
@@ -335,50 +381,62 @@ class ProvedorSobDemanda {
     for (final f in filhos) {
       final fr = _junta(rel, f.nome);
       indice[f.id] = fr;
-      final est = await nativo.estado(_abs(fr));
-      if (est == null) {
-        novos.add(_np(f));
-      } else if (est.placeholder && idDaIdentidade(est.identidade) == f.id) {
-        if (!f.pasta) await _conferirArquivo(fr, f, est);
-      } else if (est.placeholder) {
-        // Placeholder de OUTRO item com este nome (apagado e recriado na nuvem).
-        if (est.emDia && await _apagarLocal(fr)) novos.add(_np(f));
-      } else if (est.pasta && f.pasta) {
-        // Pasta comum com o nome de uma pasta da nuvem: viram a mesma (o conteúdo se acerta abaixo).
-        await nativo.converter(_abs(fr), f.identidade);
-      } else {
-        // Arquivo deste computador com o nome de um item da nuvem: o local vira a cópia de conflito.
-        final livre = _nomeLivre(rel, nomeConflito(f.nome, computador, DateTime.now()));
-        await nativo.mover(_abs(fr), _abs(_junta(rel, livre)));
-        aEnviar.add(_junta(rel, livre));
-        novos.add(_np(f));
-        _ev('conflito', _junta(rel, livre), 'a versão deste computador foi guardada com outro nome');
-      }
+      await _isolado(fr, () async {
+        final est = await nativo.estado(_abs(fr));
+        if (est == null) {
+          novos.add(_np(f));
+        } else if (est.placeholder && idDaIdentidade(est.identidade) == f.id) {
+          if (!f.pasta) await _conferirArquivo(fr, f, est);
+        } else if (est.placeholder) {
+          // Placeholder de OUTRO item com este nome (apagado e recriado na nuvem).
+          if (est.emDia && await _apagarLocal(fr)) novos.add(_np(f));
+        } else if (est.pasta && f.pasta) {
+          // Pasta comum com o nome de uma pasta da nuvem: viram a mesma (o conteúdo se acerta abaixo).
+          await nativo.converter(_abs(fr), f.identidade);
+        } else {
+          // Arquivo deste computador com o nome de um item da nuvem: o local vira a cópia de conflito.
+          final livre = _nomeLivre(rel, nomeConflito(f.nome, computador, DateTime.now()));
+          await nativo.mover(_abs(fr), _abs(_junta(rel, livre)));
+          aEnviar.add(_junta(rel, livre));
+          novos.add(_np(f));
+          _ev('conflito', _junta(rel, livre), 'a versão deste computador foi guardada com outro nome');
+        }
+      });
     }
-    if (novos.isNotEmpty) await nativo.criarPlaceholders(_abs(rel), novos);
+    if (novos.isNotEmpty) await _criar(rel, novos);
     // O que está no disco e a nuvem não tem.
     final dir = Directory(_abs(rel));
+    var locais = const <FileSystemEntity>[];
     if (dir.existsSync()) {
-      for (final e in dir.listSync(followLinks: false)) {
-        final nome = p.basename(e.path);
-        if (ignorados.nome(nome) || chaves.contains(chaveNome(nome))) continue;
-        final er = _junta(rel, nome);
+      try {
+        locais = dir.listSync(followLinks: false);
+      } catch (e) {
+        _falhou(rel, e);
+      }
+    }
+    for (final e in locais) {
+      final nome = p.basename(e.path);
+      if (ignorados.nome(nome) || chaves.contains(chaveNome(nome))) continue;
+      final er = _junta(rel, nome);
+      await _isolado(er, () async {
         final est = await nativo.estado(e.path);
-        if (est == null) continue;
+        if (est == null) return;
         if (est.placeholder && (est.emDia || est.pasta)) {
           // Saiu da nuvem. Pasta: some o que está em dia; o que foi editado aqui fica.
           if (await _apagarLocal(er)) _ev('removido', er);
         } else {
           aEnviar.add(er);
         }
-      }
+      });
     }
     for (final r in aEnviar) {
-      await _enviarLocal(r);
+      await _isolado(r, () => _enviarLocal(r));
     }
+    // Cada subpasta à parte: um problema no Meu Drive não deixa "Compartilhados comigo"
+    // e "Drives compartilhados" vazios.
     for (final f in filhos.where((f) => f.pasta)) {
       final fr = indice[f.id];
-      if (fr != null) await _popular(f.id, fr);
+      if (fr != null) await _isolado(fr, () => _popular(f.id, fr));
     }
   }
 
@@ -421,7 +479,14 @@ class ProvedorSobDemanda {
       for (var volta = 0; volta < 6 && pendentes.isNotEmpty; volta++) {
         final prox = <ItemFp>[];
         for (final it in pendentes) {
-          if (!await _aplicar(it)) prox.add(it);
+          try {
+            if (!await _aplicar(it)) prox.add(it);
+          } catch (e) {
+            // Um item que não dá para aplicar não trava a fila: a âncora anda e ele é
+            // tentado de novo na volta completa (que vem em [intervaloRevolta]).
+            if (_interrompe(e)) rethrow;
+            _falhou(indice[it.id] ?? it.nome, e);
+          }
         }
         if (prox.length == pendentes.length) break;
         pendentes = prox;
@@ -430,7 +495,9 @@ class ProvedorSobDemanda {
       for (final id in ((m['removidos'] as List?) ?? const []).map((e) => '$e')) {
         final rel = indice[id];
         if (rel == null || rel.isEmpty) continue;
-        if (await _apagarLocal(rel)) _ev('removido', rel);
+        await _isolado(rel, () async {
+          if (await _apagarLocal(rel)) _ev('removido', rel);
+        });
         _tirarDoIndice(rel);
         indice.remove(id);
       }
