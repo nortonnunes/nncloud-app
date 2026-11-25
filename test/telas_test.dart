@@ -138,6 +138,30 @@ void main() {
     });
   }
 
+  // "Versão X disponível — Atualizar agora" (os renders são os do Mac: atualiza sozinho).
+  Controle comVersaoNova() {
+    final c = controleFalso(arm);
+    c.eu!['app'] = {'macos': {'versao': '9.0.0', 'tamanho': 23328275, 'sha256': 'f' * 64}, 'windows': null, 'linux': null};
+    c.aguardando.clear();
+    return c;
+  }
+
+  testWidgets('atualizacao', (t) async {
+    await tela(t, 'atualizacao', Casca(comVersaoNova(), ValueNotifier(ThemeMode.light), ValueNotifier(0)), tamanho: const Size(1000, 1000));
+  });
+
+  testWidgets('atualizacao baixando', (t) async {
+    final c = comVersaoNova()
+      ..atualizando = true
+      ..progressoAtualizacao = 0.42;
+    await tela(t, 'atualizacao_baixando', Casca(c, ValueNotifier(ThemeMode.light), ValueNotifier(0)), tamanho: const Size(1000, 1000));
+  });
+
+  testWidgets('atualizacao com erro em configuracoes', (t) async {
+    final c = comVersaoNova()..erroAtualizacao = 'O arquivo baixado não confere com o publicado. Tente de novo.';
+    await tela(t, 'atualizacao_erro', Casca(c, ValueNotifier(ThemeMode.dark), ValueNotifier(4)), escuro: true, tamanho: const Size(1000, 1500));
+  });
+
   testWidgets('opcoes da pasta', (t) async {
     final c = controleFalso(arm)..api = ApiFalsa();
     t.view.physicalSize = const Size(1000, 860);

@@ -105,6 +105,7 @@ class Controle extends ChangeNotifier {
   static const _teste = bool.fromEnvironment('NNCLOUD_TESTE');
 
   Future<void> iniciar() async {
+    await _conferirAtualizacaoFeita();
     if (_teste) {
       final tk = Platform.environment['NNCLOUD_TOKEN'], ap = Platform.environment['NNCLOUD_API'];
       if (tk != null && ap != null) {
@@ -128,6 +129,9 @@ class Controle extends ChangeNotifier {
     notifyListeners();
     try {
       eu = await api!.eu();
+      await _verificarVersao();
+      // Só nas compilações de TESTE: dispara o "Atualizar agora" sozinho (verificação automática).
+      if (_teste && Platform.environment['NNCLOUD_ATUALIZAR'] == '1') unawaited(atualizarAgora());
       await _recarregarPares();
       _criarSincronizador();
       await _atualizarFp();
@@ -534,6 +538,11 @@ class Controle extends ChangeNotifier {
     _ultimoTique = agora;
     if (pausado) {
       situacao = Situacao.pausado;
+      // Pausado não sincroniza, mas a versão nova também chega.
+      try {
+        eu = await api!.eu();
+        await _verificarVersao();
+      } catch (_) {}
       notifyListeners();
       _agendar(Duration(seconds: intervalo));
       return;
@@ -579,6 +588,7 @@ class Controle extends ChangeNotifier {
         }
       }
       eu = await api!.eu().catchError((_) => eu!);
+      await _verificarVersao();
       await _limparLixeirasLocais();
     } on ApiErro catch (e) {
       if (e.desconectado) {
@@ -622,20 +632,116 @@ class Controle extends ChangeNotifier {
         await notif.mostrar('NN Cloud parou uma pasta', x.mensagem!);
       }
     }
-    final nova = (eu?['app']?[plataforma]?['versao'] as String?);
-    if (nova != null && _maior(nova, AppConfig.versao) && arm.pref<String>('versao_avisada', '') != nova) {
-      arm.definir('versao_avisada', nova);
-      await notif.mostrar('Nova versão do NN Cloud', 'A versão $nova está disponível em Configurações → Sobre.');
+  }
+
+  // ===================================================================
+  // Versão nova do aplicativo ("Atualizar agora")
+  // ===================================================================
+
+  /// A versão publicada para este sistema, se for MAIOR que a instalada: {versao, tamanho, sha256…}.
+  Map<String, dynamic>? get atualizacao {
+    final a = (eu?['app']?[plataforma] as Map?)?.cast<String, dynamic>();
+    final v = a?['versao'] as String?;
+    return v != null && versaoMaior(v, AppConfig.versao) ? a : null;
+  }
+
+  /// Windows e macOS se atualizam sozinhos; no Linux o `.deb` exige administrador.
+  bool get atualizaAqui => Platform.isWindows || Platform.isMacOS;
+  String get urlDownload => '${eu?['config']?['web'] ?? ''}/aplicativo?so=$plataforma';
+
+  bool atualizando = false;
+  /// 0..1 durante o download; null = preparando/instalando.
+  double? progressoAtualizacao;
+  String? erroAtualizacao;
+
+  /// Fecha o app de verdade (bandeja, instância única, janela) — quem sabe é o main.
+  Future<void> Function()? aoSairParaAtualizar;
+
+  /// Avisa UMA vez por versão — mesmo com as notificações do app desligadas: é o
+  /// único jeito de a pessoa saber que existe versão nova.
+  Future<void> _verificarVersao() async {
+    final v = atualizacao?['versao'] as String?;
+    notifyListeners();
+    if (v == null || arm.pref<String>('versao_avisada', '') == v) return;
+    arm.definir('versao_avisada', v);
+    await notif.mostrar('Nova versão do NN Cloud',
+        atualizaAqui ? 'A versão $v está pronta. Clique para atualizar.' : 'A versão $v está disponível. Clique para baixar.',
+        payload: 'atualizar');
+  }
+
+  /// Ao abrir: veio de uma atualização? Avisa como foi e limpa o que sobrou.
+  Future<void> _conferirAtualizacaoFeita() async {
+    final para = arm.pref<String>('atualizando_para', '');
+    if (para.isEmpty) return;
+    arm.definir('atualizando_para', null);
+    if (!versaoMaior(para, AppConfig.versao)) {
+      try {
+        final d = Directory(p.join(arm.dados.path, 'atualizacao'));
+        if (d.existsSync()) d.deleteSync(recursive: true);
+      } catch (_) {}
+      await notif.mostrar('NN Cloud atualizado', 'Agora na versão ${AppConfig.versao}.');
+    } else {
+      // A pasta fica: o registro da instalação/troca está lá.
+      await notif.mostrar('Não deu para atualizar o NN Cloud',
+          'Continua na versão ${AppConfig.versao}. Tente de novo em Configurações → Sobre.', payload: 'atualizar');
     }
   }
 
-  static bool _maior(String a, String b) {
-    List<int> v(String s) => s.split(RegExp(r'[.+-]')).take(3).map((x) => int.tryParse(x) ?? 0).toList();
-    final x = v(a), y = v(b);
-    for (var i = 0; i < 3; i++) {
-      if (x[i] != y[i]) return x[i] > y[i];
+  /// Baixa, confere, troca e reabre. Erro: o app segue como estava e mostra o motivo.
+  Future<void> atualizarAgora() async {
+    if (atualizacao == null || atualizando || api == null) return;
+    if (!atualizaAqui) {
+      await abrirNavegador(urlDownload);
+      return;
     }
-    return false;
+    final bundle = Platform.isMacOS ? bundleDoExecutavel(Platform.resolvedExecutable) : null;
+    if (Platform.isMacOS) {
+      final motivo = motivoParaNaoTrocarMac(bundle, gravavel: gravavelPosix);
+      if (motivo != null) {
+        erroAtualizacao = motivo;
+        notifyListeners();
+        await abrirNavegador(urlDownload);
+        return;
+      }
+    }
+    atualizando = true;
+    erroAtualizacao = null;
+    progressoAtualizacao = 0;
+    notifyListeners();
+    try {
+      // O ciclo em curso termina antes (até 60 s): nada é cortado no meio.
+      for (var i = 0; i < 120 && _rodando; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+      final pasta = Directory(p.join(arm.dados.path, 'atualizacao'));
+      if (pasta.existsSync()) pasta.deleteSync(recursive: true);
+      final (arquivo, versao) = await baixarInstalador(api!, plataforma, pasta, progresso: (feito, total) {
+        progressoAtualizacao = total > 0 ? (feito / total).clamp(0, 1).toDouble() : null;
+        notifyListeners();
+      });
+      progressoAtualizacao = null;
+      notifyListeners();
+      if (Platform.isWindows) {
+        arm.definir('atualizando_para', versao);
+        await Process.start('powershell.exe',
+            comandoWindows(pid: pid, instalador: arquivo.path, exe: Platform.resolvedExecutable, log: p.join(pasta.path, 'instalar.log')),
+            mode: ProcessStartMode.detached);
+      } else {
+        final (novo, antigo) = caminhosTrocaMac(bundle!);
+        await prepararAppMac(arquivo, destino: novo, atual: bundle, versao: versao);
+        final script = File(p.join(pasta.path, 'trocar.sh'))
+          ..writeAsStringSync(scriptTrocaMac(pid: pid, app: bundle, novo: novo, antigo: antigo, log: p.join(pasta.path, 'troca.log')));
+        arm.definir('atualizando_para', versao);
+        await Process.start('/bin/bash', [script.path], mode: ProcessStartMode.detached);
+      }
+      await aoSairParaAtualizar?.call();
+    } catch (e) {
+      arm.definir('atualizando_para', null);
+      atualizando = false;
+      progressoAtualizacao = null;
+      erroAtualizacao = e is ErroAtualizacao ? e.mensagem : 'Não deu para atualizar: $e';
+      notifyListeners();
+    }
   }
 
   Future<void> _limparLixeirasLocais() async {

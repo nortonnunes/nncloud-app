@@ -176,6 +176,10 @@ class Api {
       ((await _m('POST', 'itens/lixeira', corpo: {'ids': ids, 'confirmado': confirmado ? 1 : 0}))['itens'] as List).cast<Map<String, dynamic>>();
   Future<Map<String, dynamic>> baixar(int id) => _m('GET', 'itens/$id/baixar');
 
+  // ---------- Aplicativo (atualização) ----------
+  /// O instalador publicado deste sistema: {url (5 min), versao, nome, tamanho, impressao}.
+  Future<Map<String, dynamic>> appBaixar(String so) => _m('GET', 'app/baixar', query: {'so': so});
+
   // ---------- Domínio (sob demanda: Finder / Explorer) ----------
   // Identificadores: raiz, meu, comigo, drives, e<id> (drive), i<id> (item).
   Future<Map<String, dynamic>> fpItem(String id) async =>

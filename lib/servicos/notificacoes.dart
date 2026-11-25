@@ -16,7 +16,8 @@ class Notificacoes {
   bool _pronto = false;
   int _id = 0;
 
-  Future<void> iniciar({void Function()? aoTocar}) async {
+  /// [aoTocar] recebe o `payload` da notificação tocada (ex.: 'atualizar').
+  Future<void> iniciar({void Function(String? payload)? aoTocar}) async {
     // Linux: as notificações vão pelo barramento D-Bus da SESSÃO. Sem ele (app rodando
     // como root/sudo, sessão sem D-Bus, servidor sem desktop) o plugin falha FORA do
     // try — numa escuta assíncrona — e o erro aparece solto no terminal. Sem barramento,
@@ -32,7 +33,7 @@ class Notificacoes {
           windows: WindowsInitializationSettings(appName: 'NN Cloud', appUserModelId: appUserModelId, guid: _guid),
           linux: const LinuxInitializationSettings(defaultActionName: 'Abrir o NN Cloud'),
         ),
-        onDidReceiveNotificationResponse: (_) => aoTocar?.call(),
+        onDidReceiveNotificationResponse: (r) => aoTocar?.call(r.payload),
       );
       _pronto = true;
     } catch (_) {
@@ -58,7 +59,7 @@ class Notificacoes {
     }
   }
 
-  Future<void> mostrar(String titulo, String texto) async {
+  Future<void> mostrar(String titulo, String texto, {String? payload}) async {
     if (!_pronto) return;
     try {
       await _plugin.show(
@@ -70,6 +71,7 @@ class Notificacoes {
           windows: Platform.isWindows ? const WindowsNotificationDetails() : null,
           linux: Platform.isLinux ? const LinuxNotificationDetails() : null,
         ),
+        payload: payload,
       );
     } catch (_) {
       // notificação é aviso, nunca bloqueia a sincronização

@@ -67,6 +67,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\nncloud.exe"; Description: "Abrir o NN Cloud"; Flags: nowait postinstall skipifsilent
+; "Atualizar agora" (o app roda este instalador em silêncio depois de sair): reabre
+; escondido, na bandeja — a linha acima não roda em modo silencioso.
+Filename: "{app}\nncloud.exe"; Parameters: "--oculto"; Flags: nowait; Check: WizardSilent
 
 [UninstallDelete]
 ; Só o que é do PROGRAMA. As pastas sincronizadas e os arquivos da pessoa ficam.

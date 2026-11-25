@@ -52,11 +52,21 @@ Future<void> main(List<String> args) async {
   await windowManager.setPreventClose(true);
 
   final notif = Notificacoes();
-  await notif.iniciar(aoTocar: () async {
+  await notif.iniciar(aoTocar: (payload) async {
     await windowManager.show();
     await windowManager.focus();
+    if (payload == 'atualizar') aba.value = 4;   // Configurações → Sobre, com o "Atualizar agora"
   });
   final c = Controle(arm, notif)..janelaVisivel = !oculto;
+  // "Atualizar agora": o instalador/troca já está disparado; sai de verdade (como "Sair").
+  c.aoSairParaAtualizar = () async {
+    try {
+      await trayManager.destroy();
+    } catch (_) {}
+    await InstanciaUnica.liberar();
+    await windowManager.setPreventClose(false);
+    exit(0);
+  };
   final tema = ValueNotifier<ThemeMode>(ThemeMode.values.firstWhere((m) => m.name == arm.pref<String>('tema', 'system'), orElse: () => ThemeMode.system));
 
   runApp(AppNnCloud(c, tema, aba));
@@ -133,14 +143,17 @@ class Bandeja with TrayListener {
   final ValueNotifier<int> aba;
   Bandeja(this.c, this.aba);
   Situacao? _ultima;
+  String? _ultimaVersao;
 
   Future<void> iniciar() async {
     trayManager.addListener(this);
     await _icone();
     await _menu();
     c.addListener(() async {
-      if (c.situacao != _ultima) {
+      final versao = c.atualizacao?['versao'] as String?;
+      if (c.situacao != _ultima || versao != _ultimaVersao) {
         _ultima = c.situacao;
+        _ultimaVersao = versao;
         try {
           await _icone();
           await _menu();
@@ -193,6 +206,10 @@ class Bandeja with TrayListener {
         ]),
       ),
       MenuItem(key: 'web', label: 'Abrir no navegador', disabled: c.eu == null),
+      if (c.atualizacao != null) ...[
+        MenuItem.separator(),
+        MenuItem(key: 'atualizar', label: '${c.atualizaAqui ? 'Atualizar' : 'Baixar a versão'} ${c.atualizacao!['versao']}'),
+      ],
       MenuItem.separator(),
       MenuItem(key: 'sair', label: 'Sair do NN Cloud'),
     ]));
@@ -229,6 +246,11 @@ class Bandeja with TrayListener {
         await _menu();
       case 'web':
         await c.abrirNavegador('${c.eu?['config']?['web'] ?? ''}');
+      case 'atualizar':
+        // Um clique: mostra o andamento em Configurações e já começa.
+        await _mostrar();
+        aba.value = 4;
+        await c.atualizarAgora();
       case 'sair':
         await trayManager.destroy();
         await InstanciaUnica.liberar();

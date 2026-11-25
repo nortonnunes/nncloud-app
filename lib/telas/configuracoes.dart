@@ -6,6 +6,7 @@ import '../config.dart';
 import '../servicos/controle.dart';
 import '../servicos/sistema.dart';
 import '../tema.dart';
+import '../widgets/atualizacao.dart';
 
 class TelaConfiguracoes extends StatefulWidget {
   final Controle c;
@@ -43,8 +44,6 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
   @override
   Widget build(BuildContext context) {
     final pessoa = (c.eu?['pessoa'] as Map?) ?? {};
-    final so = Platform.isWindows ? 'windows' : (Platform.isLinux ? 'linux' : 'macos');
-    final nova = c.eu?['app']?[so] as Map?;
     return ListView(padding: const EdgeInsets.all(28), children: [
       Text('Configurações', style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 18),
@@ -137,16 +136,10 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
         ListTile(
           leading: Image.asset('assets/icon.png', width: 32, height: 32),
           title: const Text('NN Cloud ${AppConfig.versao}'),
-          subtitle: Text(nova != null && nova['versao'] != AppConfig.versao ? 'Versão ${nova['versao']} disponível.' : 'Você está na versão mais recente.'),
-          trailing: Wrap(spacing: 8, children: [
-            if (nova != null && nova['versao'] != AppConfig.versao)
-              FilledButton(
-                onPressed: () => c.abrirNavegador('${c.eu?['config']?['web'] ?? ''}/aplicativo?so=$so'),
-                child: const Text('Baixar'),
-              ),
-            OutlinedButton(onPressed: () => c.abrirNavegador('${c.eu?['config']?['web'] ?? ''}'), child: const Text('Abrir no navegador')),
-          ]),
+          subtitle: Text(c.atualizacao != null ? 'Esta é a versão instalada.' : 'Você está na versão mais recente.'),
+          trailing: OutlinedButton(onPressed: () => c.abrirNavegador('${c.eu?['config']?['web'] ?? ''}'), child: const Text('Abrir no navegador')),
         ),
+        PainelAtualizacao(c),
       ]),
     ]);
   }

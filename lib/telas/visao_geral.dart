@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../servicos/controle.dart';
 import '../tema.dart';
+import '../widgets/atualizacao.dart';
 import '../widgets/cabecalho.dart';
 
 /// (rótulo, cor-de-situação, ícone)
@@ -70,6 +71,7 @@ class TelaVisaoGeral extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.fromLTRB(28, 4, 28, 28),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (c.atualizacao != null || c.erroAtualizacao != null) ...[PainelAtualizacao(c), const SizedBox(height: 14)],
           for (final ex in c.aguardando) _confirmacao(context, ex),
           if (c.mensagem != null && c.situacao != Situacao.ok && c.situacao != Situacao.sincronizando)
             _aviso(context, c.mensagem!, c.situacao == Situacao.offline ? 'alerta' : 'erro'),
