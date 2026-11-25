@@ -147,15 +147,20 @@ void main() {
     expect(srv.conexoes, 2);
   }, timeout: const Timeout(Duration(seconds: 15)));
 
-  // Desempenho, não correção: confere que o keep-alive continua ligado. Fica de
-  // fora no Windows — lá a conexão volta ao reaproveitamento num momento
-  // diferente e um pedido feito logo em seguida pode abrir outra (falhou no
-  // GitHub Actions). O que corrige o erro do Windows — não reusar conexão parada
-  // além de `Api.ociosoMax` e repetir as quedas — é testado acima, inclusive lá.
+  // Desempenho, não correção: confere que o keep-alive continua ligado. O cliente
+  // do Dart só devolve a conexão ao estoque DEPOIS de terminar a resposta; um
+  // pedido colado no anterior pode chegar antes disso e abrir outra — por isso a
+  // pausa curta (bem abaixo de `Api.ociosoMax`). Mesmo assim roda só no Mac: nas
+  // máquinas do GitHub (Windows e Linux) o momento varia e ele falhou nas duas,
+  // travando a compilação. O que corrige de verdade — não reusar conexão parada
+  // além de `Api.ociosoMax` e repetir as quedas — é testado acima, em todo lugar.
   test('pedidos seguidos dentro do limite reaproveitam a mesma conexão', () async {
+    const pausa = Duration(milliseconds: 100);
     await api.eu();
+    await Future<void>.delayed(pausa);
     await api.eu();
+    await Future<void>.delayed(pausa);
     await api.eu();
     expect(srv.conexoes, 1);
-  }, testOn: '!windows');
+  }, testOn: 'mac-os');
 }
