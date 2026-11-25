@@ -17,12 +17,30 @@ class TelaPastas extends StatelessWidget {
     return ListView(padding: const EdgeInsets.all(28), children: [
       Row(children: [
         Expanded(child: Text('Pastas sincronizadas', style: Theme.of(context).textTheme.headlineSmall)),
-        FilledButton.icon(onPressed: () => _adicionar(context), icon: const Icon(Icons.add), label: const Text('Adicionar pasta')),
+        if (c.adicionaPastas)
+          FilledButton.icon(onPressed: () => _adicionar(context), icon: const Icon(Icons.add), label: const Text('Adicionar pasta')),
       ]),
       const SizedBox(height: 6),
-      Text('Cada pasta do computador fica igual a uma pasta do NN Cloud, nos dois sentidos — ou funciona como pasta de envio, '
-          'que manda tudo para a nuvem e libera o espaço. Em Opções dá para deixar subpastas só na nuvem.',
-          style: TextStyle(color: Cores.fraco(context))),
+      if (c.adicionaPastas)
+        Text('Cada pasta do computador fica igual a uma pasta do NN Cloud, nos dois sentidos — ou funciona como pasta de envio, '
+            'que manda tudo para a nuvem e libera o espaço. Em Opções dá para deixar subpastas só na nuvem.',
+            style: TextStyle(color: Cores.fraco(context)))
+      else
+        // Mac e Windows: o caminho agora é o NN Cloud no Finder/Explorador. As pastas que a
+        // pessoa já tinha continuam sincronizando até ela parar; com a última, esta aba some.
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: Cores.situacao(context, 'neutro').withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Agora o NN Cloud fica no ${c.windows ? 'Explorador de Arquivos' : 'Finder'}, e não dá mais para adicionar '
+                  'pastas sincronizadas. As pastas abaixo continuam sincronizando até você clicar em "Parar de sincronizar"; '
+                  'os arquivos ficam no computador. Quando a última sair, esta aba some.'),
+            ),
+          ]),
+        ),
       const SizedBox(height: 20),
       if (c.pares.isEmpty)
         Card(

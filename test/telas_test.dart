@@ -63,6 +63,10 @@ Controle controleFalso(Armazenamento arm) {
     ..aguardandoLiberar = 2;
   c.resultados = {1: r1, 2: r2, 3: r3};
   c.windows = false;   // os renders são os do Mac, em qualquer sistema
+  // Mac sem o NN Cloud no Finder (sistema antigo): é onde a aba Pastas ainda cria pasta nova.
+  c
+    ..linux = false
+    ..fpConferido = true;
   c.aguardando.add(ExclusaoEmMassa(2, 64, 0, 64, ['2025/janeiro.pdf', '2025/fevereiro.pdf', '2025/março.pdf']));
   for (final (t, cam) in [('enviado', 'Contratos/2026/proposta.pdf'), ('baixado', 'Financeiro/fluxo de caixa.xlsx'), ('conflito', 'Relatório (conflito de NOTEBOOK-ANA 2026-10-28 14h30).docx')]) {
     c.atividade.add(LinhaAtividade(t, cam, par: 1, quando: DateTime(2026, 10, 28, 14, 30)));
@@ -107,7 +111,7 @@ void main() {
   }
 
   testWidgets('conectar', (t) async {
-    final c = Controle(arm, Notificacoes());
+    final c = Controle(arm, Notificacoes())..linux = false;
     await tela(t, 'conectar', TelaConectar(c));
     c.codigo = 'BKTR-NWQZ';
     c.urlConectar = 'https://nnconecta.com/cloud/conectar';
@@ -137,6 +141,71 @@ void main() {
       await tela(t, nome, Casca(c, ValueNotifier(ThemeMode.light), ValueNotifier(0)), escuro: escuro, tamanho: const Size(1000, 1250));
     });
   }
+
+  // Mac e Windows com o NN Cloud no Finder/Explorador: a aba Pastas sai.
+  Controle soFinder({bool pares = false}) {
+    final c = controleFalso(arm)
+      ..fpSuportado = true
+      ..fpLigado = true;
+    if (!pares) {
+      c.pares = [];
+      c.resultados = {};
+      c.atividade.clear();
+    }
+    c.aguardando.clear();
+    return c;
+  }
+
+  testWidgets('visao geral so com o Finder', (t) async {
+    await tela(t, 'visao_geral_finder', Casca(soFinder(), ValueNotifier(ThemeMode.light), ValueNotifier(0)), tamanho: const Size(1000, 900));
+    expect(find.text('Pastas'), findsNothing, reason: 'sem pasta antiga, a aba Pastas não aparece');
+    expect(find.text('Adicionar pasta'), findsNothing);
+  });
+
+  testWidgets('aba Pastas escondida: o número 1 abre a Visão geral', (t) async {
+    t.view.physicalSize = const Size(1000, 900);
+    t.view.devicePixelRatio = 1;
+    await t.pumpWidget(app(Casca(soFinder(), ValueNotifier(ThemeMode.light), ValueNotifier(1))));
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('NN Cloud no Finder'), findsOneWidget);
+    expect(find.text('Pastas sincronizadas'), findsNothing);
+  });
+
+  testWidgets('pastas antigas no Mac: continuam, sem Adicionar', (t) async {
+    await tela(t, 'pastas_antigas', Casca(soFinder(pares: true), ValueNotifier(ThemeMode.light), ValueNotifier(1)),
+        tamanho: const Size(1000, 1180));
+    expect(find.text('Adicionar pasta'), findsNothing);
+    expect(find.textContaining('não dá mais para adicionar'), findsOneWidget);
+    expect(find.text('Parar de sincronizar'), findsNWidgets(3));
+  });
+
+  testWidgets('Linux: a aba Pastas continua e cria pasta nova', (t) async {
+    final c = controleFalso(arm)
+      ..linux = true
+      ..pares = []
+      ..resultados = {};
+    c.aguardando.clear();
+    t.view.physicalSize = const Size(1000, 900);
+    t.view.devicePixelRatio = 1;
+    await t.pumpWidget(app(Casca(c, ValueNotifier(ThemeMode.light), ValueNotifier(1))));
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Pastas sincronizadas'), findsOneWidget);
+    expect(find.text('Adicionar pasta'), findsOneWidget);
+  });
+
+  test('liga o Finder sozinho uma vez, só para quem não tem pasta sincronizada', () {
+    final c = soFinder()..fpLigado = false;
+    arm.definir('fp_auto', null);
+    expect(c.deveLigarFpSozinho, isTrue);
+    arm.definir('fp_auto', true);
+    expect(c.deveLigarFpSozinho, isFalse, reason: 'quem desligou depois não é religado');
+    arm.definir('fp_auto', null);
+    expect((soFinder(pares: true)..fpLigado = false).deveLigarFpSozinho, isFalse, reason: 'quem usa pasta antiga fica como está');
+    expect((soFinder()..fpSuportado = false..fpLigado = false).deveLigarFpSozinho, isFalse);
+    expect((controleFalso(arm)..linux = true).adicionaPastas, isTrue);
+    expect((Controle(arm, Notificacoes())..linux = false).mostraPastas, isFalse,
+        reason: 'antes de saber se há Finder, a aba não pisca no Mac/Windows');
+  });
 
   // "Versão X disponível — Atualizar agora" (os renders são os do Mac: atualiza sozinho).
   Controle comVersaoNova() {

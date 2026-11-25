@@ -75,14 +75,20 @@ class TelaVisaoGeral extends StatelessWidget {
           for (final ex in c.aguardando) _confirmacao(context, ex),
           if (c.mensagem != null && c.situacao != Situacao.ok && c.situacao != Situacao.sincronizando)
             _aviso(context, c.mensagem!, c.situacao == Situacao.offline ? 'alerta' : 'erro'),
-          Wrap(spacing: 14, runSpacing: 14, children: [
-            _cartao(context, Icons.description_outlined, 'Arquivos', NumberFormat.decimalPattern('pt_BR').format(c.arquivosSincronizados),
-                'sincronizados'),
-            _cartao(context, Icons.folder_outlined, 'Pastas', '${c.pares.length}', 'neste computador', aoTocar: () => irPara(1)),
-            _cartao(context, Icons.pending_actions, 'Pendentes', '${c.pendentes + c.problemas.length}', 'precisam de atenção',
-                aoTocar: () => irPara(3)),
-          ]),
-          const SizedBox(height: 20),
+          // Os números são das pastas sincronizadas: no Mac e no Windows (NN Cloud no
+          // Finder/Explorador) só aparecem para quem ainda tem pasta antiga.
+          if (c.mostraPastas) ...[
+            Wrap(spacing: 14, runSpacing: 14, children: [
+              _cartao(context, Icons.description_outlined, 'Arquivos', NumberFormat.decimalPattern('pt_BR').format(c.arquivosSincronizados),
+                  'sincronizados'),
+              _cartao(context, Icons.folder_outlined, 'Pastas', '${c.pares.length}', 'neste computador', aoTocar: () => irPara(1)),
+              _cartao(context, Icons.pending_actions, 'Pendentes', '${c.pendentes + c.problemas.length}', 'precisam de atenção',
+                  aoTocar: () => irPara(3)),
+            ]),
+            const SizedBox(height: 20),
+          ],
+          // O NN Cloud no Finder/Explorador é o caminho no Mac e no Windows: vem primeiro.
+          if (c.fpSuportado) ...[_Finder(c), const SizedBox(height: 20)],
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18),
@@ -103,7 +109,13 @@ class TelaVisaoGeral extends StatelessWidget {
                   Text('${c.arquivosCiclo} arquivo(s) · ${bytesTexto(c.bytesCiclo)} transferidos neste ciclo',
                       style: TextStyle(color: Cores.fraco(context), fontSize: 12.5)),
                 ] else
-                  Text(c.pares.isEmpty ? 'Nenhuma pasta sincronizada ainda.' : 'Tudo em dia.', style: TextStyle(color: Cores.fraco(context))),
+                  Text(
+                      c.pares.isNotEmpty || c.fpLigado
+                          ? 'Tudo em dia.'
+                          : c.adicionaPastas
+                              ? 'Nenhuma pasta sincronizada ainda.'
+                              : 'Ligue o NN Cloud no ${c.windows ? 'Explorador de Arquivos' : 'Finder'} para começar.',
+                      style: TextStyle(color: Cores.fraco(context))),
                 const SizedBox(height: 14),
                 Wrap(spacing: 10, runSpacing: 10, children: [
                   FilledButton.icon(
@@ -116,13 +128,12 @@ class TelaVisaoGeral extends StatelessWidget {
                     icon: Icon(c.pausado ? Icons.play_arrow : Icons.pause),
                     label: Text(c.pausado ? 'Retomar' : 'Pausar'),
                   ),
-                  if (c.pares.isEmpty)
+                  if (c.pares.isEmpty && c.adicionaPastas)
                     OutlinedButton.icon(onPressed: () => irPara(1), icon: const Icon(Icons.create_new_folder_outlined), label: const Text('Adicionar pasta')),
                 ]),
               ]),
             ),
           ),
-          if (c.fpSuportado) ...[const SizedBox(height: 20), _Finder(c)],
           const SizedBox(height: 20),
           Text('Atividade recente', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

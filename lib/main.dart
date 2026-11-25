@@ -144,6 +144,7 @@ class Bandeja with TrayListener {
   Bandeja(this.c, this.aba);
   Situacao? _ultima;
   String? _ultimaVersao;
+  (bool, int)? _ultimoFinder;
 
   Future<void> iniciar() async {
     trayManager.addListener(this);
@@ -151,9 +152,11 @@ class Bandeja with TrayListener {
     await _menu();
     c.addListener(() async {
       final versao = c.atualizacao?['versao'] as String?;
-      if (c.situacao != _ultima || versao != _ultimaVersao) {
+      final finder = (c.fpLigado, c.pares.length);
+      if (c.situacao != _ultima || versao != _ultimaVersao || finder != _ultimoFinder) {
         _ultima = c.situacao;
         _ultimaVersao = versao;
+        _ultimoFinder = finder;
         try {
           await _icone();
           await _menu();
@@ -198,13 +201,16 @@ class Bandeja with TrayListener {
       MenuItem.separator(),
       MenuItem(key: 'sinc', label: 'Sincronizar agora', disabled: c.api == null),
       MenuItem(key: 'pausa', label: c.pausado ? 'Retomar' : 'Pausar', disabled: c.api == null),
-      MenuItem.submenu(
-        label: 'Abrir pasta',
-        disabled: c.pares.isEmpty,
-        submenu: Menu(items: [
-          for (final pr in c.pares) MenuItem(key: 'pasta:${pr['id']}', label: (pr['nome'] as String?)?.isNotEmpty == true ? pr['nome'] as String : 'Pasta'),
-        ]),
-      ),
+      if (c.fpLigado) MenuItem(key: 'finder', label: 'Abrir no ${Platform.isWindows ? 'Explorador de Arquivos' : 'Finder'}'),
+      // As pastas sincronizadas só existem no Linux e para quem ainda tem pasta antiga.
+      if (c.pares.isNotEmpty || c.adicionaPastas)
+        MenuItem.submenu(
+          label: 'Abrir pasta',
+          disabled: c.pares.isEmpty,
+          submenu: Menu(items: [
+            for (final pr in c.pares) MenuItem(key: 'pasta:${pr['id']}', label: (pr['nome'] as String?)?.isNotEmpty == true ? pr['nome'] as String : 'Pasta'),
+          ]),
+        ),
       MenuItem(key: 'web', label: 'Abrir no navegador', disabled: c.eu == null),
       if (c.atualizacao != null) ...[
         MenuItem.separator(),
@@ -244,6 +250,8 @@ class Bandeja with TrayListener {
       case 'pausa':
         await c.pausar(!c.pausado);
         await _menu();
+      case 'finder':
+        await c.abrirNoFinder();
       case 'web':
         await c.abrirNavegador('${c.eu?['config']?['web'] ?? ''}');
       case 'atualizar':

@@ -30,7 +30,10 @@ class TelaConectar extends StatelessWidget {
             const SizedBox(width: 16),
             Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Text('NN Cloud', style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-              Text('Suas pastas do computador sempre iguais às do NN Conecta',
+              Text(
+                  c.linux
+                      ? 'Suas pastas do computador sempre iguais às do NN Conecta'
+                      : 'Seus arquivos do NN Conecta no ${c.windows ? 'Explorador de Arquivos' : 'Finder'}, sem ocupar espaço',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 15)),
             ]),
           ]),

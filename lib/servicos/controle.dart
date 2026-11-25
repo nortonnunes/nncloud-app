@@ -58,6 +58,13 @@ class Controle extends ChangeNotifier {
   /// A tela fala do Explorador de Arquivos (Windows) ou do Finder (Mac). Campo, e não
   /// `Platform.isWindows` direto, para os testes de tela desenharem as duas versões.
   bool windows = Platform.isWindows;
+  /// Linux: não há NN Cloud no gerenciador de arquivos, então as pastas sincronizadas
+  /// são o único jeito de sincronizar. Campo pelo mesmo motivo do [windows].
+  bool linux = Platform.isLinux;
+  /// Já se sabe se este sistema tem o NN Cloud no Finder/Explorador ([fpSuportado]).
+  /// Antes disso a aba Pastas não aparece no Mac nem no Windows (senão ela piscaria
+  /// enquanto o app conecta).
+  bool fpConferido = false;
   final List<String> fpProblemas = [];
   String? fpErro;
   bool get fpLiberar => arm.pref<bool>('fp_liberar', false);
@@ -87,6 +94,19 @@ class Controle extends ChangeNotifier {
 
   int get pendentes => resultados.values.fold(0, (s, r) => s + r.pendentes);
   List<String> get problemas => [for (final r in resultados.values) ...r.problemas, ...fpProblemas];
+  /// Dá para criar pasta sincronizada nova? No Mac e no Windows o caminho é o NN Cloud
+  /// no Finder/Explorador; as pastas sincronizadas ficam só no Linux e onde o sistema não
+  /// tem o NN Cloud no gerenciador de arquivos.
+  bool get adicionaPastas => linux || (fpConferido && !fpSuportado);
+
+  /// A aba Pastas aparece? Onde não se cria pasta nova, só enquanto a pessoa ainda tem
+  /// pastas sincronizadas antigas (elas continuam até ela parar; com a última, a aba some).
+  bool get mostraPastas => adicionaPastas || pares.isNotEmpty;
+
+  /// Liga o NN Cloud no Finder/Explorador sozinho? Uma vez por computador, só para quem
+  /// não usa pastas sincronizadas: quem desligar depois não é religado.
+  bool get deveLigarFpSozinho => fpSuportado && !fpLigado && pares.isEmpty && !arm.pref<bool>('fp_auto', false);
+
   int get arquivosSincronizados {
     var n = 0;
     for (final pr in pares) {
@@ -135,6 +155,7 @@ class Controle extends ChangeNotifier {
       await _recarregarPares();
       _criarSincronizador();
       await _atualizarFp();
+      await _ligarFpSozinho();
       situacao = pausado ? Situacao.pausado : Situacao.ok;
       mensagem = null;
       _agendar(const Duration(seconds: 1));
@@ -289,6 +310,7 @@ class Controle extends ChangeNotifier {
     if (Platform.isWindows) return _atualizarFpWindows();
     final (sup, lig, apr) = await SobDemanda.estado();
     fpSuportado = sup;
+    fpConferido = true;
     fpLigado = lig;
     fpAprovado = apr;
     if (lig) {
@@ -300,11 +322,25 @@ class Controle extends ChangeNotifier {
     if (_teste && Platform.environment['NNCLOUD_FP'] == '0' && lig) await ligarSobDemanda(false);
   }
 
+  /// O NN Cloud no Finder/Explorador é o caminho principal no Mac e no Windows: liga
+  /// sozinho ao conectar (ou na primeira abertura desta versão). A marca é gravada ANTES
+  /// de tentar: uma falha aparece no cartão da Visão geral, e não vira uma nova tentativa
+  /// a cada abertura do app. No Mac 15+ a pessoa ainda aprova em Ajustes do Sistema (o
+  /// cartão explica).
+  Future<void> _ligarFpSozinho() async {
+    // Versão de teste com NNCLOUD_FP: quem decide é o ambiente (ver _atualizarFp).
+    if (_teste && Platform.environment.containsKey('NNCLOUD_FP')) return;
+    if (!deveLigarFpSozinho) return;
+    arm.definir('fp_auto', true);
+    await ligarSobDemanda(true);
+  }
+
   SobDemandaWindows get _windows => _win ??= SobDemandaWindows(arm.dados, _aoEventoFp);
 
   /// Windows: o NN Cloud já estava no Explorador? Então conecta e põe em dia.
   Future<void> _atualizarFpWindows() async {
     fpSuportado = await SobDemandaWindows.suportado();
+    fpConferido = true;
     fpAprovado = true;
     final raiz = fpSuportado ? await SobDemandaWindows.registrado() : null;
     fpLigado = raiz != null;
