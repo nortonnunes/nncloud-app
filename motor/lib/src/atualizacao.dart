@@ -151,8 +151,8 @@ String? motivoParaNaoTrocarMac(String? bundle, {required bool Function(String ca
   if (bundle.contains('/AppTranslocation/')) {
     return 'O NN Cloud está rodando direto do instalador. Arraste-o para a pasta Aplicativos, abra de lá e tente de novo.';
   }
-  if (!gravavel(p.dirname(bundle)) || !gravavel(bundle)) {
-    return 'Sem permissão para trocar o aplicativo em ${p.dirname(bundle)}. Baixe e instale a versão nova.';
+  if (!gravavel(p.posix.dirname(bundle)) || !gravavel(bundle)) {
+    return 'Sem permissão para trocar o aplicativo em ${p.posix.dirname(bundle)}. Baixe e instale a versão nova.';
   }
   return null;
 }
@@ -160,8 +160,9 @@ String? motivoParaNaoTrocarMac(String? bundle, {required bool Function(String ca
 /// Onde o .app novo espera e onde o antigo fica durante a troca: na MESMA pasta do
 /// app (renomear é instantâneo e não muda de disco).
 (String novo, String antigo) caminhosTrocaMac(String bundle) {
-  final dir = p.dirname(bundle), nome = p.basename(bundle);
-  return (p.join(dir, '.$nome.novo'), p.join(dir, '.$nome.antigo'));
+  // Sempre POSIX: é caminho de macOS, e o teste roda também no Windows (barra invertida).
+  final dir = p.posix.dirname(bundle), nome = p.posix.basename(bundle);
+  return (p.posix.join(dir, '.$nome.novo'), p.posix.join(dir, '.$nome.antigo'));
 }
 
 String _aspasSh(String s) => "'${s.replaceAll("'", r"'\''")}'";
@@ -212,7 +213,7 @@ Future<String?> timeDaAssinatura(String app, {Executor run = executar}) async {
 }
 
 Future<String?> _plist(String app, String chave, Executor run) async {
-  final (c, saida) = await run('/usr/bin/plutil', ['-extract', chave, 'raw', '-o', '-', p.join(app, 'Contents', 'Info.plist')]);
+  final (c, saida) = await run('/usr/bin/plutil', ['-extract', chave, 'raw', '-o', '-', p.posix.join(app, 'Contents', 'Info.plist')]);
   return c == 0 ? saida.trim() : null;
 }
 
