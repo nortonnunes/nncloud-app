@@ -1,10 +1,7 @@
 // A barra do menu em ONDA, a mesma do NN Conecta (`body.menu-onda .topbar`):
 // degradê da esquerda para a direita, ondas finas, grade de pontos e a borda de
 // baixo curva — o caminho da máscara do site (`M0 0H100V100Q55 72 0 62Z`).
-// As cores vêm do servidor (padrão, Configurações → CSS ou o tema sazonal), e a
-// imagem do topo do tema sazonal entra por baixo das ondas.
-import 'dart:math' as math;
-
+// As cores vêm do servidor (padrão, Configurações → CSS ou o tema sazonal).
 import 'package:flutter/material.dart';
 
 import '../tema.dart';
@@ -17,7 +14,8 @@ Path caminhoOnda(Size s, double curva) {
     ..moveTo(0, 0)
     ..lineTo(s.width, 0)
     ..lineTo(s.width, h)
-    ..quadraticBezierTo(s.width * .55, base + curva * .72, 0, base + curva * .62)
+    ..quadraticBezierTo(
+        s.width * .55, base + curva * .72, 0, base + curva * .62)
     ..close();
 }
 
@@ -33,43 +31,61 @@ class _PintorOnda extends CustomPainter {
     canvas.save();
     canvas.clipPath(forma);
     final r = Offset.zero & s;
-    canvas.drawRect(r, Paint()..shader = LinearGradient(colors: [ini, fim]).createShader(r));
+    canvas.drawRect(r,
+        Paint()..shader = LinearGradient(colors: [ini, fim]).createShader(r));
 
-    // Ondas finas (três), em branco translúcido.
+    // As ondas do site (`body.menu-onda .topbar::before`): as MESMAS curvas do SVG
+    // de 400×120, esticadas na barra inteira. No escuro, duas e mais apagadas.
+    final sx = s.width / 400, sy = s.height / 120;
     final linha = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = Colors.white.withValues(alpha: escuro ? .07 : .16);
-    for (var k = 0; k < 3; k++) {
-      final y0 = s.height * (.28 + k * .18);
-      final p = Path()..moveTo(0, y0);
-      for (double x = 0; x <= s.width; x += 8) {
-        p.lineTo(x, y0 + math.sin((x / s.width) * math.pi * 2 * 1.5 + k * 1.3) * (7 + k * 3));
-      }
-      canvas.drawPath(p, linha);
+      ..color = Colors.white.withValues(alpha: escuro ? .08 : .14);
+    Path onda(List<double> v) => Path()
+      ..moveTo(v[0] * sx, v[1] * sy)
+      ..cubicTo(
+          v[2] * sx, v[3] * sy, v[4] * sx, v[5] * sy, v[6] * sx, v[7] * sy)
+      ..cubicTo(
+          v[8] * sx, v[9] * sy, v[10] * sx, v[11] * sy, v[12] * sx, v[13] * sy);
+    // "C a, b, c S d, e" → o primeiro controle do S é o reflexo de b em c.
+    canvas.drawPath(
+        onda([-20, 40, 80, 10, 160, 80, 260, 40, 360, 0, 440, 20, 460, 70]),
+        linha);
+    if (!escuro) {
+      canvas.drawPath(
+          onda([-20, 58, 80, 28, 160, 98, 260, 58, 360, 18, 440, 38, 460, 88]),
+          linha);
     }
+    canvas.drawPath(
+        onda(
+            [-40, 100, 60, 70, 150, 140, 250, 100, 350, 60, 430, 80, 470, 130]),
+        linha);
 
-    // Grade de pontos na faixa curva (no site eles ficam ACIMA da curva).
-    final ponto = Paint()..color = Colors.white.withValues(alpha: escuro ? .10 : .22);
-    final topo = s.height - curva;
-    for (double y = topo + 6; y < s.height - 4; y += 9) {
-      for (double x = s.width * .62; x < s.width - 10; x += 9) {
-        canvas.drawCircle(Offset(x, y), 1.1, ponto);
+    // A grade de pontos do canto direito (`::after` do site): 92×28, a 5% da
+    // borda, na faixa curva — abaixo dos links.
+    final ponto = Paint()..color = Colors.white.withValues(alpha: .5);
+    final x0 = s.width * .95 - 92, y0 = s.height - 11 - 28;
+    for (double y = y0 + 6.5; y < y0 + 28; y += 13) {
+      for (double x = x0 + 6.5; x < x0 + 92; x += 13) {
+        canvas.drawCircle(Offset(x, y), 1.5, ponto);
       }
     }
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _PintorOnda o) => o.ini != ini || o.fim != fim || o.escuro != escuro || o.curva != curva;
+  bool shouldRepaint(covariant _PintorOnda o) =>
+      o.ini != ini || o.fim != fim || o.escuro != escuro || o.curva != curva;
 }
 
-/// A barra em onda com o conteúdo (os links do menu) por cima.
+/// A barra em onda com o conteúdo (os links do menu) por cima. As cores são as do
+/// tema escolhido no NN Conecta (padrão, Configurações → CSS ou o tema sazonal).
+/// A imagem do tema sazonal NÃO entra aqui: no site ela é o fundo da faixa de
+/// cima (a da logo), e é lá que o app a põe.
 class BarraOnda extends StatelessWidget {
   final Widget child;
-  final String? fundo;   // imagem do topo do tema sazonal
   final double curva;
-  const BarraOnda({super.key, required this.child, this.fundo, this.curva = 26});
+  const BarraOnda({super.key, required this.child, this.curva = 34});
 
   @override
   Widget build(BuildContext context) {
@@ -77,59 +93,48 @@ class BarraOnda extends StatelessWidget {
     final escuro = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
       painter: _PintorOnda(p.topoIni, p.topoFim, escuro, curva),
-      child: Stack(children: [
-        if (fundo != null && fundo!.isNotEmpty)
-          Positioned.fill(
-            child: ClipPath(
-              clipper: _Recorte(curva),
-              child: Opacity(
-                opacity: .35,
-                child: Image.network(fundo!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-              ),
-            ),
-          ),
-        Padding(padding: EdgeInsets.only(bottom: curva), child: child),
-      ]),
+      child: Padding(padding: EdgeInsets.only(bottom: curva), child: child),
     );
   }
 }
 
-class _Recorte extends CustomClipper<Path> {
-  final double curva;
-  _Recorte(this.curva);
-  @override
-  Path getClip(Size size) => caminhoOnda(size, curva);
-  @override
-  bool shouldReclip(covariant _Recorte o) => o.curva != curva;
-}
-
-/// Um link do menu na barra (branco, sublinhado quando é a tela aberta).
+/// Um link do menu na barra — o `.topnav-link` do site: só o texto, branco,
+/// com fundo claro translúcido quando é a tela aberta.
 class LinkMenu extends StatelessWidget {
   final String rotulo;
-  final IconData icone;
   final bool ativo;
   final int selo;
   final VoidCallback onTap;
-  const LinkMenu({super.key, required this.rotulo, required this.icone, required this.ativo, required this.onTap, this.selo = 0});
+  const LinkMenu(
+      {super.key,
+      required this.rotulo,
+      required this.ativo,
+      required this.onTap,
+      this.selo = 0});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 1),
       child: Material(
         color: ativo ? Colors.white.withValues(alpha: .18) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
+          hoverColor: Colors.white.withValues(alpha: .12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icone, color: Colors.white, size: 19),
-              const SizedBox(width: 8),
-              Text(rotulo, style: TextStyle(color: Colors.white, fontWeight: ativo ? FontWeight.w700 : FontWeight.w600, fontSize: 14.5)),
+              Text(rotulo,
+                  style: TextStyle(
+                      color: ativo
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: .88),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.5)),
               if (selo > 0) ...[
-                const SizedBox(width: 7),
+                const SizedBox(width: 6),
                 Selo(selo, claro: true),
               ],
             ]),
@@ -152,9 +157,15 @@ class Selo extends StatelessWidget {
       height: 19,
       padding: const EdgeInsets.symmetric(horizontal: 5),
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: claro ? Colors.white : p.danger, borderRadius: BorderRadius.circular(99)),
+      decoration: BoxDecoration(
+          color: claro ? Colors.white : p.danger,
+          borderRadius: BorderRadius.circular(99)),
       child: Text(n > 99 ? '99+' : '$n',
-          style: TextStyle(color: claro ? p.danger : Colors.white, fontSize: 11, fontWeight: FontWeight.w800, height: 1)),
+          style: TextStyle(
+              color: claro ? p.danger : Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              height: 1)),
     );
   }
 }
@@ -185,10 +196,14 @@ class PontoStatus extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: off ? Colors.transparent : c,
-        border: Border.all(color: off ? const Color(0xFF9CA3AF) : context.pal.card, width: off ? 2 : 1.5),
+        border: Border.all(
+            color: off ? const Color(0xFF9CA3AF) : context.pal.card,
+            width: off ? 2 : 1.5),
       ),
       child: codigo == 'nao_perturbe'
-          ? Center(child: Container(width: tam * .5, height: 1.6, color: Colors.white))
+          ? Center(
+              child:
+                  Container(width: tam * .5, height: 1.6, color: Colors.white))
           : null,
     );
   }

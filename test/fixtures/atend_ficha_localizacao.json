@@ -1,0 +1,128 @@
+{
+    "id": 1,
+    "aba": "localizacao",
+    "abas": [
+        {
+            "chave": "acionamento",
+            "rotulo": "Acionamento"
+        },
+        {
+            "chave": "digital",
+            "rotulo": "Digital"
+        },
+        {
+            "chave": "agenda",
+            "rotulo": "Agenda"
+        },
+        {
+            "chave": "localizacao",
+            "rotulo": "Localização"
+        },
+        {
+            "chave": "referencias",
+            "rotulo": "Referências"
+        },
+        {
+            "chave": "cadastro",
+            "rotulo": "Cadastro"
+        },
+        {
+            "chave": "documentos",
+            "rotulo": "Documentos"
+        },
+        {
+            "chave": "propostas",
+            "rotulo": "Propostas"
+        },
+        {
+            "chave": "financeiro",
+            "rotulo": "Financeiro"
+        },
+        {
+            "chave": "whatsapp",
+            "rotulo": "WhatsApp"
+        }
+    ],
+    "cabecalho": {
+        "nome": "Mariana Souza Lima",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "doc": "135.342.576-26",
+        "total": "R$ 200,00",
+        "atraso": "45 dias de atraso"
+    },
+    "painel": {
+        "nome": "Mariana Souza Lima",
+        "doc": "135.342.576-26",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "titulos": "2 · 1 vencido",
+        "total": "R$ 200,00",
+        "vencido": "R$ 120,50",
+        "vencido_alerta": true,
+        "atraso": "45 dias",
+        "venc_mais_antigo": "12/10/2026",
+        "contratos_rot": "Contrato",
+        "contratos": "39036687",
+        "situacoes": "DESLIGADO",
+        "entrada": "26/11/2026",
+        "uf_cidade": "MG UBERABA",
+        "fones": [
+            {
+                "numero": "34992684302",
+                "fone": "(34) 99268-4302",
+                "status": "valido",
+                "rotulo": "Válido"
+            }
+        ],
+        "arquivo_fones": [],
+        "emails": [
+            "mariana@exemplo.com",
+            "outro@exemplo.com"
+        ],
+        "proximo": null,
+        "ultimo": {
+            "classe": "positivo",
+            "tipo": "PROPOSTA ACEITA",
+            "quando": "26/11/2026 17:01",
+            "autor": "Tel Um"
+        }
+    },
+    "conteudo": {
+        "endereco": "Rua das Flores 120, Jardim",
+        "cidade_cep": "UBERABA/MG · CEP 38010-000",
+        "tem_endereco": true,
+        "email": "mariana@exemplo.com",
+        "arquivo_fones": [],
+        "todos": "34992684302, 21994222082",
+        "opcoes": {
+            "valido": "Válido",
+            "invalido": "Inválido",
+            "nao_perturbe": "Não perturbe"
+        },
+        "telefones": [
+            {
+                "id": 2,
+                "numero": "34992684302",
+                "fone": "(34) 99268-4302",
+                "observacao": "Do arquivo: Telefone 1",
+                "tipo": "Celular",
+                "informado": true,
+                "status": "valido",
+                "rotulo": "Válido",
+                "tentativas": 0,
+                "ultima": "—"
+            },
+            {
+                "id": 1,
+                "numero": "21994222082",
+                "fone": "(21) 99422-2082",
+                "observacao": "",
+                "tipo": "Celular",
+                "informado": false,
+                "status": "invalido",
+                "rotulo": "Inválido",
+                "tentativas": 1,
+                "ultima": "26/11/2026 17:01"
+            }
+        ]
+    }
+}

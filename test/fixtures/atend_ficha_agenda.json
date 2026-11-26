@@ -1,0 +1,105 @@
+{
+    "id": 1,
+    "aba": "agenda",
+    "abas": [
+        {
+            "chave": "acionamento",
+            "rotulo": "Acionamento"
+        },
+        {
+            "chave": "digital",
+            "rotulo": "Digital"
+        },
+        {
+            "chave": "agenda",
+            "rotulo": "Agenda"
+        },
+        {
+            "chave": "localizacao",
+            "rotulo": "Localização"
+        },
+        {
+            "chave": "referencias",
+            "rotulo": "Referências"
+        },
+        {
+            "chave": "cadastro",
+            "rotulo": "Cadastro"
+        },
+        {
+            "chave": "documentos",
+            "rotulo": "Documentos"
+        },
+        {
+            "chave": "propostas",
+            "rotulo": "Propostas"
+        },
+        {
+            "chave": "financeiro",
+            "rotulo": "Financeiro"
+        },
+        {
+            "chave": "whatsapp",
+            "rotulo": "WhatsApp"
+        }
+    ],
+    "cabecalho": {
+        "nome": "Mariana Souza Lima",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "doc": "135.342.576-26",
+        "total": "R$ 200,00",
+        "atraso": "45 dias de atraso"
+    },
+    "painel": {
+        "nome": "Mariana Souza Lima",
+        "doc": "135.342.576-26",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "titulos": "2 · 1 vencido",
+        "total": "R$ 200,00",
+        "vencido": "R$ 120,50",
+        "vencido_alerta": true,
+        "atraso": "45 dias",
+        "venc_mais_antigo": "12/10/2026",
+        "contratos_rot": "Contrato",
+        "contratos": "39036687",
+        "situacoes": "DESLIGADO",
+        "entrada": "26/11/2026",
+        "uf_cidade": "MG UBERABA",
+        "fones": [
+            {
+                "numero": "34992684302",
+                "fone": "(34) 99268-4302",
+                "status": "valido",
+                "rotulo": "Válido"
+            }
+        ],
+        "arquivo_fones": [],
+        "emails": [
+            "mariana@exemplo.com",
+            "outro@exemplo.com"
+        ],
+        "proximo": null,
+        "ultimo": {
+            "classe": "positivo",
+            "tipo": "PROPOSTA ACEITA",
+            "quando": "26/11/2026 17:01",
+            "autor": "Tel Um"
+        }
+    },
+    "conteudo": {
+        "hoje": "2026-11-26",
+        "amanha": "2026-11-27",
+        "itens": [
+            {
+                "id": 1,
+                "quando": "28/11/2026 às 10:30",
+                "status": "feito",
+                "rotulo": "Feito",
+                "atrasado": false,
+                "motivo": "Confirmar boleto",
+                "autor": "Tel Um",
+                "criado": "26/11/2026 17:01"
+            }
+        ]
+    }
+}

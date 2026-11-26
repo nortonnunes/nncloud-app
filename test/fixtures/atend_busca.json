@@ -1,0 +1,39 @@
+{
+    "q": "mariana",
+    "curta": false,
+    "total": 2,
+    "page": 1,
+    "pages": 1,
+    "indisponivel": null,
+    "itens": [
+        {
+            "id": 2,
+            "nome": "Isabela Mariana Prado",
+            "credor": "OUTRA OPERADORA LTDA",
+            "doc": "106.091.586-35",
+            "titulos": 1,
+            "total": "R$ 4.081,19",
+            "atraso": 45,
+            "em_dia": false,
+            "local": "CARNEIRINHO/MG",
+            "ultimo": null
+        },
+        {
+            "id": 1,
+            "nome": "Mariana Souza Lima",
+            "credor": "UNIMED TESTE COOPERATIVA",
+            "doc": "135.342.576-26",
+            "titulos": 2,
+            "total": "R$ 200,00",
+            "atraso": 45,
+            "em_dia": false,
+            "local": "UBERABA/MG",
+            "ultimo": {
+                "classe": "positivo",
+                "tipo": "PROPOSTA ACEITA",
+                "quando": "26/11/2026 17:01",
+                "autor": "Tel Um"
+            }
+        }
+    ]
+}

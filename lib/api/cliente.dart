@@ -174,6 +174,8 @@ class Api {
       if (er is Map) {
         return ApiErro(status, (er['message'] ?? 'Erro $status').toString(), (er['code'] ?? '').toString());
       }
+      // As ações do Atendimento respondem no formato da Mesa: `{ok, error: "texto"}`.
+      if (er is String && er.isNotEmpty) return ApiErro(status, er);
     } catch (_) {}
     return ApiErro(status, switch (status) {
       413 => 'O arquivo passou do limite do servidor.',

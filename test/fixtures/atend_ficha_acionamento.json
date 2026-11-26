@@ -1,0 +1,358 @@
+{
+    "id": 1,
+    "aba": "acionamento",
+    "abas": [
+        {
+            "chave": "acionamento",
+            "rotulo": "Acionamento"
+        },
+        {
+            "chave": "digital",
+            "rotulo": "Digital"
+        },
+        {
+            "chave": "agenda",
+            "rotulo": "Agenda"
+        },
+        {
+            "chave": "localizacao",
+            "rotulo": "Localização"
+        },
+        {
+            "chave": "referencias",
+            "rotulo": "Referências"
+        },
+        {
+            "chave": "cadastro",
+            "rotulo": "Cadastro"
+        },
+        {
+            "chave": "documentos",
+            "rotulo": "Documentos"
+        },
+        {
+            "chave": "propostas",
+            "rotulo": "Propostas"
+        },
+        {
+            "chave": "financeiro",
+            "rotulo": "Financeiro"
+        },
+        {
+            "chave": "whatsapp",
+            "rotulo": "WhatsApp"
+        }
+    ],
+    "cabecalho": {
+        "nome": "Mariana Souza Lima",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "doc": "135.342.576-26",
+        "total": "R$ 200,00",
+        "atraso": "45 dias de atraso"
+    },
+    "painel": {
+        "nome": "Mariana Souza Lima",
+        "doc": "135.342.576-26",
+        "credor": "UNIMED TESTE COOPERATIVA",
+        "titulos": "2 · 1 vencido",
+        "total": "R$ 200,00",
+        "vencido": "R$ 120,50",
+        "vencido_alerta": true,
+        "atraso": "45 dias",
+        "venc_mais_antigo": "12/10/2026",
+        "contratos_rot": "Contrato",
+        "contratos": "39036687",
+        "situacoes": "DESLIGADO",
+        "entrada": "26/11/2026",
+        "uf_cidade": "MG UBERABA",
+        "fones": [
+            {
+                "numero": "34992684302",
+                "fone": "(34) 99268-4302",
+                "status": "valido",
+                "rotulo": "Válido"
+            }
+        ],
+        "arquivo_fones": [],
+        "emails": [
+            "mariana@exemplo.com",
+            "outro@exemplo.com"
+        ],
+        "proximo": null,
+        "ultimo": {
+            "classe": "positivo",
+            "tipo": "PROPOSTA ACEITA",
+            "quando": "26/11/2026 17:01",
+            "autor": "Tel Um"
+        }
+    },
+    "conteudo": {
+        "tipos": [
+            {
+                "id": 1,
+                "nome": "ATENDEU",
+                "classe": "neutro"
+            },
+            {
+                "id": 2,
+                "nome": "NÃO ATENDEU",
+                "classe": "negativo"
+            },
+            {
+                "id": 3,
+                "nome": "TELEFONE INEXISTENTE",
+                "classe": "negativo"
+            },
+            {
+                "id": 4,
+                "nome": "RECADO",
+                "classe": "neutro"
+            },
+            {
+                "id": 5,
+                "nome": "PROMESSA DE PAGAMENTO",
+                "classe": "positivo"
+            },
+            {
+                "id": 6,
+                "nome": "AC QUEBRADO 1ª",
+                "classe": "negativo"
+            },
+            {
+                "id": 7,
+                "nome": "ACORDO QUEBRADO",
+                "classe": "negativo"
+            },
+            {
+                "id": 8,
+                "nome": "ACORDO CARTÃO - LIG RECEP",
+                "classe": "positivo"
+            },
+            {
+                "id": 9,
+                "nome": "ACORDO CARTÃO - LIG. ATIVO",
+                "classe": "positivo"
+            },
+            {
+                "id": 10,
+                "nome": "ACORDO CARTÃO DE CRÉDITO",
+                "classe": "positivo"
+            },
+            {
+                "id": 11,
+                "nome": "ACORDO SULAMÉRICA",
+                "classe": "positivo"
+            },
+            {
+                "id": 12,
+                "nome": "AGUARDANDO RETORNO CREDOR",
+                "classe": "neutro"
+            },
+            {
+                "id": 13,
+                "nome": "AÇÃO INFORMATIVA WHATSAPP",
+                "classe": "neutro"
+            },
+            {
+                "id": 14,
+                "nome": "AÇÃO INTERATIVA WHATSAPP",
+                "classe": "neutro"
+            },
+            {
+                "id": 15,
+                "nome": "BOL/C.B. ENVIADO POR WHATSAPP",
+                "classe": "positivo"
+            },
+            {
+                "id": 16,
+                "nome": "BOLETO COD DE BARRAS - LIG ATV",
+                "classe": "positivo"
+            },
+            {
+                "id": 17,
+                "nome": "BOLETO COD DE BARRAS - LIG RCP",
+                "classe": "positivo"
+            },
+            {
+                "id": 18,
+                "nome": "BOLETO CORREIOS - LIG. ATIVA",
+                "classe": "positivo"
+            },
+            {
+                "id": 19,
+                "nome": "BOLETO CORREIOS - LIG. RECEP",
+                "classe": "positivo"
+            },
+            {
+                "id": 20,
+                "nome": "BOLETO EMITIDO",
+                "classe": "positivo"
+            },
+            {
+                "id": 21,
+                "nome": "E-MAIL MARKETING",
+                "classe": "neutro"
+            }
+        ],
+        "classes": {
+            "positivo": "Positivo",
+            "negativo": "Negativo",
+            "neutro": "Informativo"
+        },
+        "contagem": {
+            "total": 13,
+            "positivo": 1,
+            "negativo": 1,
+            "neutro": 11
+        },
+        "f_classe": "",
+        "f_meus": false,
+        "eventos": [
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "PROPOSTA ACEITA",
+                "classe": "positivo",
+                "texto": "R$ 150,00 em 3x",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "PROPOSTA REGISTRADA",
+                "classe": "neutro",
+                "texto": "Dívida de R$ 200,00 por R$ 150,00 em 3x",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "DOCUMENTO EXCLUÍDO",
+                "classe": "neutro",
+                "texto": "Comprovante",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "DOCUMENTO ANEXADO",
+                "classe": "neutro",
+                "texto": "Comprovante",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "E-MAIL ENVIADO",
+                "classe": "neutro",
+                "texto": "Boleto",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "CADASTRO ALTERADO",
+                "classe": "neutro",
+                "texto": "Campos: bairro",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "REFERÊNCIA EXCLUÍDA",
+                "classe": "neutro",
+                "texto": "Joana",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "REFERÊNCIA INCLUÍDA",
+                "classe": "neutro",
+                "texto": "Joana (Mãe)",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "TELEFONE INVÁLIDO",
+                "classe": "negativo",
+                "texto": "(21) 99422-2082",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "TELEFONE INCLUÍDO",
+                "classe": "neutro",
+                "texto": "(34) 99268-4302",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "RETORNO REALIZADO",
+                "classe": "neutro",
+                "texto": "Agendado para 28/11/2026 10:30",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "RETORNO AGENDADO",
+                "classe": "neutro",
+                "texto": "Para 28/11/2026 10:30 — Confirmar boleto",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": true
+            },
+            {
+                "dia": "2026-11-26",
+                "dia_rotulo": "Hoje",
+                "hora": "17:01",
+                "tipo": "ATENDEU",
+                "classe": "neutro",
+                "texto": "Ligou\ne prometeu pagar",
+                "autor": "Tel Um",
+                "meu": true,
+                "automatico": false
+            }
+        ],
+        "cortado": false,
+        "max_texto": 5000
+    }
+}

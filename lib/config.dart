@@ -6,7 +6,7 @@ import 'dart:io';
 /// `X-NN-App-Versao` e que o servidor compara para oferecer a atualização.
 class AppConfig {
   static const String nome = 'Conecta Callcenter';
-  static const String versao = '1.0.1';
+  static const String versao = '1.0.2';
 
   /// A API do NN Conecta. Em produção é sempre https; `--dart-define=CALLAPP_API=…`
   /// troca o endereço (o de teste só aceita http com `CALLAPP_TESTE=true`).
@@ -31,5 +31,6 @@ class AppConfig {
   static const Duration cicloConversa = Duration(seconds: 4);
   static const Duration cicloConversaOculta = Duration(seconds: 15);
   static const Duration cicloAparencia = Duration(minutes: 10);
-  static const Duration cicloVersao = Duration(hours: 6);
+  /// Reserva do aviso de versão nova (o principal vem no `/eu`, a cada 30 s).
+  static const Duration cicloVersao = Duration(minutes: 10);
 }
