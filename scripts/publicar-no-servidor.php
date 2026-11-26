@@ -1,6 +1,6 @@
 <?php
 /*
- * Publica um instalador do App do Callcenter pelo terminal — o MESMO caminho
+ * Publica um instalador do APP Operação UNIFI pelo terminal — o MESMO caminho
  * do CallAppConfigController::appConcluir (conferências, Armazenamento, setting,
  * evento), para um arquivo que já está no servidor.
  *
@@ -67,7 +67,7 @@ $g = Armazenamento::guardarEm($arq, Config::PASTA_APP, $stored, 'application/oct
 
 Config::set(Config::S_APP . $so, (string) json_encode([
     'versao'        => $versao,
-    'nome'          => 'Conecta-Callcenter-' . $versao . '.' . $ext,
+    'nome'          => 'APP-Operacao-UNIFI-' . $versao . '.' . $ext,
     'tamanho'       => $tamanho,
     'sha256'        => $sha,
     'stored_name'   => $stored,

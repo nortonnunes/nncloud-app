@@ -1,4 +1,4 @@
-# Gera o instalador do Conecta Callcenter para Windows numa máquina Windows do GitHub.
+# Gera o instalador do APP Operação UNIFI para Windows numa máquina Windows do GitHub.
 # Dispara com a tag de versão (abaixo). O .exe sai em "Artifacts", no fim da execução.
 # (O botão "Run workflow" só aparece para workflows da branch principal — a deste é
 # a branch "callcenter" do repositório do NN Cloud, então o caminho é a tag.)
@@ -44,6 +44,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Conecta-Callcenter-Windows
+          name: APP-Operacao-UNIFI-Windows
           path: build/instaladores/*.exe
           if-no-files-found: error

@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -222,25 +223,67 @@ class _FaixaTopoState extends State<FaixaTopo> {
   ImageStream? _stream;
   ImageStreamListener? _ouvinte;
 
-  /// Lê a largura/altura da imagem do topo, para a faixa ter a proporção dela.
+  /// A imagem já lida e a parte dela que vale (sem as faixas brancas das bordas).
+  /// Enquanto a medida não chega — ou quando a imagem não tem borda —, a faixa usa a
+  /// DecorationImage de sempre.
+  ui.Image? _imagem;
+  Rect? _area;
+  bool _medindo = false;
+
+  /// Lê a largura/altura da imagem do topo, para a faixa ter a proporção dela, e
+  /// mede as bordas claras.
   void _resolver(String? url) {
     if (url == _url) return;
     if (_stream != null && _ouvinte != null) _stream!.removeListener(_ouvinte!);
     _url = url;
     _proporcao = null;
     _stream = null;
+    _imagem?.dispose();
+    _imagem = null;
+    _area = null;
+    _medindo = false;
     if (url == null) return;
     _ouvinte = ImageStreamListener((info, _) {
       final w = info.image.width, h = info.image.height;
-      if (mounted && h > 0 && url == _url) setState(() => _proporcao = w / h);
+      if (mounted && h > 0 && url == _url) {
+        if (_area == null) setState(() => _proporcao = w / h);
+        if (!_medindo && _imagem == null) {
+          _medindo = true;
+          _medirBordas(url, info.image.clone());
+        }
+      }
+      info.dispose();
     }, onError: (_, __) {});
     _stream = FaixaTopo.imagem(url).resolve(ImageConfiguration.empty)
       ..addListener(_ouvinte!);
   }
 
+  Future<void> _medirBordas(String url, ui.Image img) async {
+    try {
+      final px = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (!mounted || url != _url || px == null) {
+        img.dispose();
+        return;
+      }
+      final area = areaUtilDaImagem(px.buffer.asUint8List(), img.width, img.height);
+      if (area.width == img.width && area.height == img.height) {
+        img.dispose();   // sem borda clara: fica a DecorationImage
+        return;
+      }
+      setState(() {
+        _imagem = img;
+        _area = area;
+        _proporcao = area.width / area.height;
+      });
+    } catch (_) {
+      img.dispose();
+    }
+  }
+
   @override
   void dispose() {
     if (_stream != null && _ouvinte != null) _stream!.removeListener(_ouvinte!);
+    _imagem?.dispose();
     super.dispose();
   }
 
@@ -295,20 +338,11 @@ class _FaixaTopoState extends State<FaixaTopo> {
           ? base
           : (cons.maxWidth / (_proporcao ?? 1920 / 250))
               .clamp(base, math.max(base, FaixaTopo.alturaMaxima))
-              .toDouble();
-      return Container(
-        height: altura,
-        decoration: BoxDecoration(
-          color: p.card,
-          border: Border(bottom: BorderSide(color: p.cardBorder)),
-          image: fundo == null
-              ? null
-              : DecorationImage(
-                  image: FaixaTopo.imagem(fundo),
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  onError: (_, __) {}),
-        ),
+              // Pixel inteiro: com altura quebrada (188,48) a última linha fica meio
+              // imagem, meio fundo claro — uma risca cinza entre o tema e o menu.
+              .roundToDouble();
+      final recortada = fundo != null && _imagem != null && _area != null;
+      final linha = Padding(
         padding: EdgeInsets.fromLTRB(22, fundo == null ? 0 : 12, 22, 0),
         child: Row(
             crossAxisAlignment: fundo == null
@@ -319,6 +353,28 @@ class _FaixaTopoState extends State<FaixaTopo> {
               const Spacer(),
               direita,
             ]),
+      );
+      return Container(
+        height: altura,
+        decoration: BoxDecoration(
+          color: p.card,
+          // Com a imagem do tema, ela encosta direto na barra do menu: a linha
+          // clara de separação ficava riscando o tema.
+          border: fundo == null
+              ? Border(bottom: BorderSide(color: p.cardBorder))
+              : null,
+          image: fundo == null || recortada
+              ? null
+              : DecorationImage(
+                  image: FaixaTopo.imagem(fundo),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  onError: (_, __) {}),
+        ),
+        child: recortada
+            ? CustomPaint(
+                painter: PintorFundoTopo(_imagem!, _area!), child: linha)
+            : linha,
       );
     });
   }
@@ -484,7 +540,7 @@ class DialogoAtualizacao extends StatelessWidget {
         return AlertDialog(
           icon: Icon(Icons.system_update_alt_rounded,
               color: _verdeBotao, size: 30),
-          title: const Text('Nova versão do Conecta Callcenter'),
+          title: const Text('Nova versão do ${AppConfig.nome}'),
           content: SizedBox(
               width: 460,
               child: Column(

@@ -8,6 +8,8 @@ import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../config.dart';
+
 class Notificacoes {
   static const appUserModelId = 'NortonNunes.NNCallcenter';
   static const _guid = '3e8a1f47-2c9d-4b61-a5e0-7d2b9c4f1e83';
@@ -30,8 +32,8 @@ class Notificacoes {
       await _plugin.initialize(
         InitializationSettings(
           macOS: const DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: false, requestSoundPermission: false),
-          windows: WindowsInitializationSettings(appName: 'Conecta Callcenter', appUserModelId: appUserModelId, guid: _guid),
-          linux: const LinuxInitializationSettings(defaultActionName: 'Abrir o Conecta Callcenter'),
+          windows: WindowsInitializationSettings(appName: AppConfig.nome, appUserModelId: appUserModelId, guid: _guid),
+          linux: const LinuxInitializationSettings(defaultActionName: 'Abrir o ${AppConfig.nome}'),
         ),
         onDidReceiveNotificationResponse: (r) => aoTocar?.call(r.payload),
       );

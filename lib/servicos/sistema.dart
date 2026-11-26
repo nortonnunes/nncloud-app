@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:win32_registry/win32_registry.dart';
 
+import '../config.dart';
+
 const _canal = MethodChannel('callcenter/sistema');
 
 /// ⚠️ Um aplicativo só por pessoa no computador: dois abertos tocariam cada
@@ -110,7 +112,7 @@ class InicioComSistema {
           _tirarPlist();
           return null;
         }
-        if (r == 'aprovacao') return 'Autorize o Conecta Callcenter em Ajustes do Sistema → Geral → Itens de início.';
+        if (r == 'aprovacao') return 'Autorize o ${AppConfig.nome} em Ajustes do Sistema → Geral → Itens de início.';
       } on MissingPluginException {
         // versão antiga do macOS: LaunchAgent
       } on PlatformException {
@@ -157,7 +159,7 @@ class InicioComSistema {
         ..parent.createSync(recursive: true)
         ..writeAsStringSync('''[Desktop Entry]
 Type=Application
-Name=Conecta Callcenter
+Name=${AppConfig.nome}
 Comment=O aplicativo dos tele atendentes
 Exec="$exe" --oculto
 Icon=$_rotulo

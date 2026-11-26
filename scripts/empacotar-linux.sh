@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gera o Conecta Callcenter para Linux. Rodar NUMA MÁQUINA LINUX (o Flutter não
+# Gera o APP Operação UNIFI (até a 1.0.2: Conecta Callcenter) para Linux. Rodar NUMA MÁQUINA LINUX (o Flutter não
 # compila para Linux a partir do macOS/Windows) — no GitHub, `.github/workflows/linux.yml`.
 #
 # Pré-requisitos (Ubuntu/Debian):
@@ -24,7 +24,7 @@ case "$(uname -m)" in
   aarch64|arm64) arq_flutter=arm64; arq_deb=arm64 ;;
   *) echo "Arquitetura $(uname -m) não suportada." >&2; exit 1 ;;
 esac
-echo "Conecta Callcenter $versao ($arq_deb)"
+echo "APP Operação UNIFI $versao ($arq_deb)"
 
 DEFINES=()
 [ -n "${CALLAPP_API:-}" ] && DEFINES+=("--dart-define=CALLAPP_API=$CALLAPP_API")
@@ -40,7 +40,7 @@ desktop() {   # $1 = comando do Exec
   cat <<DESK
 [Desktop Entry]
 Type=Application
-Name=Conecta Callcenter
+Name=APP Operação UNIFI
 GenericName=Comunicação interna
 Comment=Conversas, comunicados, NN News e avisos do NN Conecta
 Exec=$1
@@ -75,7 +75,7 @@ Installed-Size: $tamanho_kb
 Depends: libgtk-3-0, libsecret-1-0, libjsoncpp25 | libjsoncpp24 | libjsoncpp1, libayatana-appindicator3-1 | libappindicator3-1, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0, gstreamer1.0-plugins-good, zenity | kdialog
 Recommends: gnome-keyring | kwalletmanager, xdg-utils, gstreamer1.0-libav
 Homepage: https://nnconecta.com
-Description: Conecta Callcenter — o app do Tele Atendimento do NN Conecta
+Description: APP Operação UNIFI — o app do Tele Atendimento do NN Conecta
  Conversas completas, comunicados com alerta, NN News, quadro de avisos e
  aniversariantes, sempre em tela cheia e com o ícone ao lado do relógio.
 CTRL
@@ -94,4 +94,4 @@ dpkg-deb --root-owner-group --build "$raiz" "$saida/conecta-callcenter_${versao}
 echo
 ls -lh "$saida"
 sha256sum "$saida"/*.deb
-echo "Pronto - publique o .deb em Sistema > App do Callcenter > Aplicativo (Linux)."
+echo "Pronto - publique o .deb em Sistema > APP Operação UNIFI > Aplicativo (Linux)."

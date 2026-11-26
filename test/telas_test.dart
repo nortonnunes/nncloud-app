@@ -15,6 +15,7 @@ import 'package:conecta_callcenter/servicos/notificacoes.dart';
 import 'package:conecta_callcenter/telas/atendimento/atendimento.dart';
 import 'package:conecta_callcenter/telas/casca.dart';
 import 'package:conecta_callcenter/tema.dart';
+import 'package:conecta_callcenter/widgets/topo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -604,6 +605,11 @@ void main() {
       await t.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 600)));
       await t.pump();
+      // A faixa branca da borda esquerda da imagem (10 colunas) foi medida e cortada.
+      expect(
+          find.byWidgetPredicate(
+              (w) => w is CustomPaint && w.painter is PintorFundoTopo),
+          findsOneWidget);
       // Os avisos saíram do painel; o link continua no menu.
       expect(find.text('Quadro de avisos'), findsNothing);
       expect(find.text('Avisos'), findsOneWidget);
@@ -629,7 +635,7 @@ void main() {
       await t.pump();
       expect(at.versaoNova, '9.9.9');
       expect(at.pronto, isNotNull, reason: at.erro);
-      expect(find.text('Nova versão do Conecta Callcenter'), findsOneWidget);
+      expect(find.text('Nova versão do APP Operação UNIFI'), findsOneWidget);
       expect(find.textContaining('Pronta para instalar'), findsOneWidget);
       await t.pump(const Duration(milliseconds: 400));
       await expectLater(find.byType(MaterialApp),
@@ -648,7 +654,7 @@ void main() {
       // O aviso não volta sozinho para a mesma versão.
       c.notifyListeners();
       await t.pump();
-      expect(find.text('Nova versão do Conecta Callcenter'), findsNothing);
+      expect(find.text('Nova versão do APP Operação UNIFI'), findsNothing);
       await t.pumpWidget(const SizedBox());
       t.view.reset();
     });

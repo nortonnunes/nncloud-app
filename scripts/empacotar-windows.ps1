@@ -1,6 +1,6 @@
 # Arquivo SO com caracteres ASCII, de proposito: o Windows PowerShell 5.1 le
 # .ps1 sem BOM como ANSI, e um travessao UTF-8 virava aspas e quebrava a string.
-# Gera o instalador do Conecta Callcenter para Windows. Rodar NUM PC COM WINDOWS
+# Gera o instalador do APP Operacao UNIFI (ate a 1.0.2: Conecta Callcenter) para Windows. Rodar NUM PC COM WINDOWS
 # (ou pelo workflow .github/workflows/windows.yml), com:
 #   - Flutter 3.41.6 no PATH
 #   - Visual Studio 2022 com "Desenvolvimento para desktop com C++" (inclui ATL)
@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
 $versao = ((Select-String -Path pubspec.yaml -Pattern '^version:').Line -replace 'version:\s*', '' -replace '\+.*', '').Trim()
-Write-Host "Conecta Callcenter $versao"
+Write-Host "APP Operacao UNIFI $versao"
 
 $defines = @()
 if ($env:CALLAPP_API) { $defines += "--dart-define=CALLAPP_API=$($env:CALLAPP_API)" }
@@ -45,8 +45,8 @@ Assinar "$saida\ConectaCallcenter.exe"
 $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 & $iscc "/DVersao=$versao" 'instalador\windows\callcenter.iss'
 if ($LASTEXITCODE -ne 0) { throw "O Inno Setup falhou (codigo $LASTEXITCODE)." }
-$instalador = "build\instaladores\Conecta-Callcenter-$versao-Windows.exe"
+$instalador = "build\instaladores\APP-Operacao-UNIFI-$versao-Windows.exe"
 Assinar $instalador
 
 (Get-FileHash $instalador -Algorithm SHA256).Hash.ToLower() + "  $instalador"
-Write-Host "Pronto: $instalador - publique em Sistema > App do Callcenter > Aplicativo (Windows)."
+Write-Host "Pronto: $instalador - publique em Sistema > APP Operacao UNIFI > Aplicativo (Windows)."

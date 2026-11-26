@@ -1,12 +1,17 @@
 import 'dart:io';
 
-/// Configuração do Conecta Callcenter.
+/// Configuração do APP Operação UNIFI (até a 1.0.2: "Conecta Callcenter").
+///
+/// ⚠️ `nome` é só o que se VÊ. Os nomes internos continuam "Conecta Callcenter"
+/// (pasta de dados, conta do chaveiro, chave "Run" do Windows, `ProductName` do
+/// Runner.rc, cabeçalho User-Agent): trocá-los faria o computador perder a chave
+/// e a autorização.
 ///
 /// ⚠️ `versao` anda junto do `version` do pubspec: é ela que vai no cabeçalho
 /// `X-NN-App-Versao` e que o servidor compara para oferecer a atualização.
 class AppConfig {
-  static const String nome = 'Conecta Callcenter';
-  static const String versao = '1.0.2';
+  static const String nome = 'APP Operação UNIFI';
+  static const String versao = '1.0.3';
 
   /// A API do NN Conecta. Em produção é sempre https; `--dart-define=CALLAPP_API=…`
   /// troca o endereço (o de teste só aceita http com `CALLAPP_TESTE=true`).

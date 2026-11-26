@@ -2,6 +2,10 @@
 // degradê da esquerda para a direita, ondas finas, grade de pontos e a borda de
 // baixo curva — o caminho da máscara do site (`M0 0H100V100Q55 72 0 62Z`).
 // As cores vêm do servidor (padrão, Configurações → CSS ou o tema sazonal).
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../tema.dart';
@@ -207,4 +211,84 @@ class PontoStatus extends StatelessWidget {
           : null,
     );
   }
+}
+
+// ===================================================================
+// A imagem do tema sazonal na faixa de cima
+// ===================================================================
+
+/// A área ÚTIL de uma imagem de topo: sem as faixas claras (quase brancas) ou
+/// transparentes coladas nas bordas. É sobra de exportação — a imagem da Black
+/// Friday veio com 10 colunas brancas à esquerda, a última já quase branca (226) —
+/// e a faixa as mostraria como uma borda branca entre a janela e o tema.
+/// "Clara" = os três canais a partir de 215, ou quase transparente.
+///
+/// [rgba]: os pixels (4 bytes cada). Só corta até [maxFracao] de cada lado; se a
+/// faixa clara passa disso, a imagem é clara DE VERDADE e nada é cortado daquele lado.
+Rect areaUtilDaImagem(Uint8List rgba, int w, int h, {double maxFracao = .05}) {
+  final inteira = Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble());
+  if (w <= 0 || h <= 0 || rgba.length < w * h * 4) return inteira;
+  bool clara(int x, int y) {
+    final i = (y * w + x) * 4;
+    return rgba[i + 3] < 16 ||
+        (rgba[i] >= 215 && rgba[i + 1] >= 215 && rgba[i + 2] >= 215);
+  }
+
+  // Amostra ~120 pontos por linha/coluna: basta para uma faixa contínua.
+  final passoY = math.max(1, h ~/ 120), passoX = math.max(1, w ~/ 120);
+  bool coluna(int x) {
+    for (var y = 0; y < h; y += passoY) {
+      if (!clara(x, y)) return false;
+    }
+    return true;
+  }
+
+  bool linha(int y) {
+    for (var x = 0; x < w; x += passoX) {
+      if (!clara(x, y)) return false;
+    }
+    return true;
+  }
+
+  int faixa(bool Function(int) clara, int de, int sentido, int max) {
+    var n = 0;
+    while (n < max && clara(de + n * sentido)) {
+      n++;
+    }
+    return n >= max ? 0 : n;
+  }
+
+  final mx = (w * maxFracao).floor(), my = (h * maxFracao).floor();
+  final esq = faixa(coluna, 0, 1, mx), dir = faixa(coluna, w - 1, -1, mx);
+  final cima = faixa(linha, 0, 1, my), baixo = faixa(linha, h - 1, -1, my);
+  if (esq + dir >= w || cima + baixo >= h) return inteira;
+  return Rect.fromLTRB(esq.toDouble(), cima.toDouble(), (w - dir).toDouble(),
+      (h - baixo).toDouble());
+}
+
+/// Pinta só a [area] da imagem, cobrindo a faixa inteira (o `cover` + centro do
+/// `background` do site).
+class PintorFundoTopo extends CustomPainter {
+  final ui.Image imagem;
+  final Rect area;
+  const PintorFundoTopo(this.imagem, this.area);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || area.isEmpty) return;
+    final ajuste = applyBoxFit(BoxFit.cover, area.size, size);
+    final origem = Alignment.center.inscribe(ajuste.source, area);
+    final destino = Alignment.center.inscribe(ajuste.destination, Offset.zero & size);
+    canvas.drawImageRect(
+        imagem,
+        origem,
+        destino,
+        Paint()
+          ..filterQuality = FilterQuality.medium
+          ..isAntiAlias = true);
+  }
+
+  @override
+  bool shouldRepaint(PintorFundoTopo antigo) =>
+      antigo.imagem != imagem || antigo.area != area;
 }

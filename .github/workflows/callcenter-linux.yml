@@ -1,4 +1,4 @@
-# Gera o Conecta Callcenter para Linux (.deb) numa máquina Ubuntu do GitHub.
+# Gera o APP Operação UNIFI para Linux (.deb) numa máquina Ubuntu do GitHub.
 # Dispara com a tag de versão (abaixo). O .deb sai em "Artifacts".
 # ⚠️ ubuntu-22.04 e não "latest": o binário depende da glibc de onde foi compilado.
 name: Callcenter — Instalador Linux
@@ -50,6 +50,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Conecta-Callcenter-Linux
+          name: APP-Operacao-UNIFI-Linux
           path: build/instaladores/*.deb
           if-no-files-found: error
