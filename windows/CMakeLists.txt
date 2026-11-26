@@ -31,6 +31,11 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
+# ⚠️ O MSVC 14.52 (Visual Studio 18, o do windows-latest do GitHub) transformou em
+# ERRO o <experimental/coroutine> que o audioplayers_windows e o
+# flutter_local_notifications_windows (C++/WinRT) ainda usam. Definido aqui, antes
+# do generated_plugins.cmake, vale para os plugins também.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 
 # Compilation settings that should be applied to most targets.
 #
