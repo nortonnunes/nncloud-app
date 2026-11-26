@@ -1,0 +1,46 @@
+# Gera o instalador do Conecta Callcenter para Windows numa máquina Windows do GitHub.
+# Aba "Actions" → "Instalador Windows" → "Run workflow" (informe a API, se não for a padrão).
+# O .exe sai em "Artifacts", no fim da execução.
+name: Instalador Windows
+
+on:
+  # Tag de versão (git push origin v1.2.3) gera o instalador sozinho, com a API padrão.
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      api:
+        description: 'Endereço da API do NN Conecta (https)'
+        required: false
+        default: ''
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+
+      - name: Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Dependências e testes
+        run: |
+          flutter pub get
+          flutter test test/formato_test.dart
+
+      - name: Gerar o instalador
+        env:
+          CALLAPP_API: ${{ inputs.api }}
+        run: powershell -ExecutionPolicy Bypass -File scripts\empacotar-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Conecta-Callcenter-Windows
+          path: build/instaladores/*.exe
+          if-no-files-found: error

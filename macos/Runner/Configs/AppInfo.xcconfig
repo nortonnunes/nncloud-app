@@ -1,0 +1,11 @@
+// Application-level settings for the Runner target.
+
+// O nome do aplicativo (pasta "Conecta Callcenter.app" e o título da janela).
+PRODUCT_NAME = Conecta Callcenter
+
+// ⚠️ O bundle id é conferido pela atualização automática: a versão nova só
+// entra no lugar da antiga se tiver o MESMO id e o MESMO time (52YUD97UMR).
+CALLCENTER_ID = br.com.nortonnunes.callcenter
+PRODUCT_BUNDLE_IDENTIFIER = $(CALLCENTER_ID)
+
+PRODUCT_COPYRIGHT = Copyright © 2026 Norton Nunes. Todos os direitos reservados.
