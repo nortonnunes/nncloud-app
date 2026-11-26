@@ -25,6 +25,10 @@ jobs:
       - name: Bibliotecas de compilação
         run: |
           sudo apt-get update
+          # ⚠️ O runner já traz o libunwind-14-dev (do LLVM), que conflita com o
+          # libunwind-dev que o libgstreamer1.0-dev exige — o apt sai com 100.
+          sudo apt-get remove -y libunwind-14-dev || true
+          sudo apt-get install -y libunwind-dev
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
             libstdc++-12-dev libsecret-1-dev libjsoncpp-dev libayatana-appindicator3-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev dpkg-dev
