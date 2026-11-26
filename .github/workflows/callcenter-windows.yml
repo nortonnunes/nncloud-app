@@ -1,12 +1,15 @@
 # Gera o instalador do Conecta Callcenter para Windows numa máquina Windows do GitHub.
-# Aba "Actions" → "Instalador Windows" → "Run workflow" (informe a API, se não for a padrão).
-# O .exe sai em "Artifacts", no fim da execução.
-name: Instalador Windows
+# Dispara com a tag de versão (abaixo). O .exe sai em "Artifacts", no fim da execução.
+# (O botão "Run workflow" só aparece para workflows da branch principal — a deste é
+# a branch "callcenter" do repositório do NN Cloud, então o caminho é a tag.)
+name: Callcenter — Instalador Windows
 
 on:
-  # Tag de versão (git push origin v1.2.3) gera o instalador sozinho, com a API padrão.
+  # Tag de versão (git push origin callcenter-v1.2.3) gera o instalador sozinho, com a API padrão.
+  # ⚠️ Prefixo "callcenter-": este código vive no repositório do NN Cloud (branch callcenter),
+  # e as tags são do repositório inteiro — "v1.2.3" colidiria com as do NN Cloud.
   push:
-    tags: ['v*']
+    tags: ['callcenter-v*']
   workflow_dispatch:
     inputs:
       api:

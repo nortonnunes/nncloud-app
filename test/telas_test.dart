@@ -139,6 +139,13 @@ Future<Controle> controleFalso(Directory dir) async {
       'id': 1, 'nome': 'Ana Lima', 'primeiro': 'Ana', 'email': 'ana@nortonnunes.com.br', 'avatar': null,
       'status': {'codigo': 'disponivel', 'escolhido': 'disponivel', 'mensagem': ''},
       'computador': {'nome': 'CALL-PC-07', 'so': 'windows'},
+    }
+    ..aparencia = {
+      'sistema': 'Conecta', 'empresa': 'Norton Nunes Recuperação de Crédito', 'site_url': 'https://nnconecta.com',
+      'rodape': {
+        'texto': 'Conecta · Norton Nunes Recuperação de Crédito. Todos os direitos reservados.',
+        'denuncia': 'https://nnconecta.com/denuncia', 'lgpd': 'https://nnconecta.com/lgpd',
+      },
     };
   return c;
 }

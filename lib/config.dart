@@ -6,7 +6,7 @@ import 'dart:io';
 /// `X-NN-App-Versao` e que o servidor compara para oferecer a atualização.
 class AppConfig {
   static const String nome = 'Conecta Callcenter';
-  static const String versao = '1.0.0';
+  static const String versao = '1.0.1';
 
   /// A API do NN Conecta. Em produção é sempre https; `--dart-define=CALLAPP_API=…`
   /// troca o endereço (o de teste só aceita http com `CALLAPP_TESTE=true`).

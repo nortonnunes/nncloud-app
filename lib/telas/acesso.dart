@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../config.dart';
 import '../servicos/controle.dart';
 import '../tema.dart';
+import '../widgets/rodape.dart';
 
 /// A logo do NN Conecta (a do tema sazonal, se houver), ou o ícone do app.
 class LogoConecta extends StatelessWidget {
@@ -257,6 +258,8 @@ class _TelaLoginState extends State<TelaLogin> {
       FilledButton(onPressed: _entrando ? null : _entrar, child: Text(_entrando ? 'Entrando…' : 'Entrar')),
       const SizedBox(height: 14),
       Text('Esqueceu a senha? Fale com o administrador.', textAlign: TextAlign.center, style: TextStyle(color: p.muted, fontSize: 12.5)),
+      const SizedBox(height: 10),
+      LinhaDenuncia(widget.c.aparencia),
     ]);
   }
 }

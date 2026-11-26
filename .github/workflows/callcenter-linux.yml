@@ -1,12 +1,14 @@
 # Gera o Conecta Callcenter para Linux (.deb) numa máquina Ubuntu do GitHub.
-# Aba "Actions" → "Instalador Linux" → "Run workflow". O .deb sai em "Artifacts".
+# Dispara com a tag de versão (abaixo). O .deb sai em "Artifacts".
 # ⚠️ ubuntu-22.04 e não "latest": o binário depende da glibc de onde foi compilado.
-name: Instalador Linux
+name: Callcenter — Instalador Linux
 
 on:
-  # Tag de versão (git push origin v1.2.3) gera o instalador sozinho, com a API padrão.
+  # Tag de versão (git push origin callcenter-v1.2.3) gera o instalador sozinho, com a API padrão.
+  # ⚠️ Prefixo "callcenter-": este código vive no repositório do NN Cloud (branch callcenter),
+  # e as tags são do repositório inteiro — "v1.2.3" colidiria com as do NN Cloud.
   push:
-    tags: ['v*']
+    tags: ['callcenter-v*']
   workflow_dispatch:
     inputs:
       api:

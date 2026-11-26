@@ -14,6 +14,7 @@ import '../servicos/sistema.dart';
 import '../servicos/som.dart';
 import '../tema.dart';
 import '../widgets/comum.dart';
+import '../widgets/rodape.dart';
 import '../widgets/topo.dart';
 import 'acesso.dart';
 import 'avisos.dart';
@@ -109,6 +110,7 @@ class _CascaState extends State<Casca> {
               TelaAvisos(c, ativa: aba == 3),
             ]),
           ),
+          RodapeApp(c.aparencia),
         ]),
         if (c.comunicados.isNotEmpty) _Comunicado(c, key: ValueKey(c.comunicados.first['id'])),
       ]),

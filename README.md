@@ -44,8 +44,13 @@ flutter run -d macos --dart-define=CALLAPP_TESTE=true --dart-define=CALLAPP_API=
 | Sistema | Como | Sai em |
 |---|---|---|
 | macOS | `CALLAPP_API=https://… scripts/empacotar-macos.sh` (neste Mac: Developer ID + notarização pelo perfil `NNCLOUD`) | `build/instaladores/Conecta-Callcenter-<v>.dmg` |
-| Windows | GitHub → Actions → "Instalador Windows", ou `git push origin v<versão>` (roda Windows e Linux), ou `scripts\empacotar-windows.ps1` num PC com Windows | `Conecta-Callcenter-<v>-Windows.exe` |
-| Linux | GitHub → Actions → "Instalador Linux" (ou `scripts/empacotar-linux.sh` no Ubuntu 22.04) | `conecta-callcenter_<v>_amd64.deb` |
+| Windows | `git tag -a callcenter-v<versão> && git push origin callcenter callcenter-v<versão>` (roda Windows e Linux no GitHub), ou `scripts\empacotar-windows.ps1` num PC com Windows | `Conecta-Callcenter-<v>-Windows.exe` (em Actions → Artifacts) |
+| Linux | a mesma tag (ou `scripts/empacotar-linux.sh` no Ubuntu 22.04) | `conecta-callcenter_<v>_amd64.deb` |
+
+O código mora no **repositório do NN Cloud** (`nortonnunes/nncloud-app`), na **branch `callcenter`**
+(independente da `main` do NN Cloud). As tags levam o prefixo `callcenter-` porque o espaço de tags é
+do repositório inteiro, e os workflows (`callcenter-windows.yml`, `callcenter-linux.yml`) têm nome de
+arquivo próprio — o GitHub agrupa as execuções pelo caminho do arquivo.
 
 Publique cada instalador em **Sistema → App do Callcenter → Aplicativo**, com a versão. Os
 computadores com o app aberto baixam sozinhos, conferem e instalam quando a janela vai para a bandeja.
