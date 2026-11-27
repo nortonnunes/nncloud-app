@@ -6,7 +6,7 @@
 ; ⚠️ AppMutex = o mutex que o app cria ao abrir (NNConversasAppMutex, lib/servicos/sistema.dart).
 ; ⚠️ AppUserModelID no atalho: SEM ele as notificações do Windows (comunicados,
 ;    mensagens novas) não aparecem — é o mesmo id de lib/servicos/notificacoes.dart.
-; ⚠️ AppId NUNCA muda (e é DIFERENTE do APP Operação UNIFI): é por ele que a
+; ⚠️ AppId NUNCA muda (e é DIFERENTE do NN Unifi): é por ele que a
 ;    atualização acha a instalação anterior.
 ; ⚠️ "Iniciar com o Windows" nasce MARCADO: o comunicado só chega com o app aberto.
 ; ⚠️ O valor "NN Conversas" da chave Run é o mesmo que o app lê (lib/servicos/sistema.dart).

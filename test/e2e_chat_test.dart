@@ -214,6 +214,24 @@ void main() {
       expect(EstadoLeitura.de(r2['read_state']).tique(enviada.id, 9301), 2);
     }, skip: !_ligado);
 
+    test('aviso de mensagem nova: a lista diz quem escreveu, e ler=0 não marca como lida', () async {
+      final antes = (await chatAna.conversas()).firstWhere((c) => c.id == direta);
+      final m = await chatCaio.enviar(direta, corpo: 'chegou agora', html: false);
+      var c = (await chatAna.conversas()).firstWhere((c) => c.id == direta);
+      expect(c.naoLidas, antes.naoLidas + 1);
+      expect(c.ultimoId, m.id);
+      expect(c.ultimoAutor, 'Caio Isento');
+      // A conversa aberta com o app minimizado: busca, mas não marca.
+      final r = await chatAna.mensagens(direta, after: m.id - 1, ler: false);
+      expect((r['messages'] as List).map((x) => (x as Map)['id']), contains(m.id));
+      c = (await chatAna.conversas()).firstWhere((c) => c.id == direta);
+      expect(c.naoLidas, antes.naoLidas + 1, reason: 'ninguém leu');
+      // Voltou a olhar: a consulta comum marca.
+      await chatAna.mensagens(direta, after: m.id);
+      c = (await chatAna.conversas()).firstWhere((c) => c.id == direta);
+      expect(c.naoLidas, 0);
+    }, skip: !_ligado);
+
     test('reagir e editar', () async {
       var reacoes = await chatCaio.reagir(enviada.id, '👍');
       expect(reacoes.single.minha, isTrue);

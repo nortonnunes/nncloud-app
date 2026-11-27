@@ -3,7 +3,7 @@ description: "NN Conversas — as Conversas do NN Conecta no computador (Windows
 publish_to: 'none'
 # ⚠️ `version` e `AppConfig.versao` andam JUNTOS: é a versão que o servidor compara
 # para decidir se há atualização.
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: ^3.5.0

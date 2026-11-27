@@ -5,7 +5,7 @@ Linux). Abre nas Conversas — com **todas as funções do site** (formatação,
 reações, editar, encaminhar, enquetes, grupos, menções, busca, favoritos) —, tem o **Início**
 (NN News, avisos e aniversariantes), o **NN News** para leitura, o **Quadro de avisos** e os
 **comunicados** com alerta. Janela normal (lembra o tamanho e a posição); minimizar ou fechar leva
-para o ícone ao lado do relógio. O topo e o menu são os do APP Operação UNIFI (logo, cores, tema
+para o ícone ao lado do relógio. O topo e o menu são os do NN Unifi (logo, cores, tema
 sazonal e a barra em onda do NN Conecta).
 
 Entra quem tem a **permissão de Conversas** no NN Conecta (operadora e tele atendente não), com o
@@ -44,7 +44,7 @@ flutter run -d macos --dart-define=CONVERSAS_TESTE=true --dart-define=CONVERSAS_
 | `lib/telas/casca.dart` | topo igual ao do NN Conecta, menu, comunicado por cima |
 | `lib/telas/conversas/` | o chat: lista, conversa, compositor formatado, diálogos, tempo real |
 
-⚠️ **Gêmeo do APP Operação UNIFI** (`public_app_call/`): o chat, o topo, o NN News, os avisos, o
+⚠️ **Gêmeo do NN Unifi** (`public_app_call/`): o chat, o topo, o NN News, os avisos, o
 rodapé e a atualização são cópias. Correção feita num lado precisa ir ao outro.
 
 ## Gerar os instaladores

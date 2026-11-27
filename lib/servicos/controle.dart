@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 
 import '../api/cliente.dart';
 import '../config.dart';
+import 'alertas.dart';
 import 'armazenamento.dart';
 
 enum Fase { iniciando, login, pronto, bloqueado }
@@ -34,9 +35,14 @@ const _p = AppConfig.prefixo;
 class Controle extends ChangeNotifier {
   final Armazenamento arm;
   final Api api;
-  Controle(this.arm, {Api? api}) : api = api ?? Api() {
+  Controle(this.arm, {Api? api})
+      : api = api ?? Api(),
+        alertas = Alertas(arm) {
     this.api.aoPerderAcesso = _perdeuAcesso;
   }
+
+  /// Os avisos de mensagem nova (quadro no canto, notificação, som).
+  final Alertas alertas;
 
   Fase fase = Fase.iniciando;
   String? motivo;           // texto da tela de bloqueio
@@ -72,12 +78,14 @@ class Controle extends ChangeNotifier {
   List<Map<String, dynamic>> comunicados = [];
   final Set<int> _comunicadosVistos = {};
 
-  /// A janela está à vista? (fora dela, mensagem nova vira notificação + som)
+  /// A janela está à vista? (fora da bandeja). Quem decide os avisos de mensagem
+  /// é `alertas.janelaEmFoco`, que olha também o foco.
   bool janelaVisivel = true;
 
-  /// Avisos para a casca (janela, som, notificação) — ligados no `main`.
+  /// Aviso de comunicado para a casca (janela, som, notificação) — ligado no `main`.
+  /// (Mensagem nova não passa por aqui: é `alertas`, alimentado pela lista e pela
+  /// conversa aberta.)
   Future<void> Function(List<Map<String, dynamic>> novos)? aoChegarComunicado;
-  Future<void> Function(int antes, int agora)? aoChegarMensagem;
   void Function()? aoMudarVisual;
 
   Timer? _tComunicados, _tEu, _tAparencia;
@@ -93,6 +101,12 @@ class Controle extends ChangeNotifier {
 
   Future<void> iniciar() async {
     api.token = await arm.token();
+    // Só na versão de TESTE (`--dart-define=CONVERSAS_TESTE=true`): a sessão vem do
+    // ambiente, sem passar pelo chaveiro. Não existe no app normal.
+    if (AppConfig.modoTeste) {
+      final t = Platform.environment['CONVERSAS_TOKEN'] ?? '';
+      if (t.startsWith('nnconv_')) api.token = t;
+    }
     nomeComputador = _nomeDoComputador();
     emailDigitado = arm.pref<String>('ultimo_email', '');
     await _carregarAparencia();
@@ -415,6 +429,7 @@ class Controle extends ChangeNotifier {
     eu = null;
     comunicados = [];
     naoLidas = 0;
+    alertas.limpar();
   }
 
   void _perdeuAcesso(ApiErro e) {
@@ -449,9 +464,7 @@ class Controle extends ChangeNotifier {
     _carregandoEu = true;
     try {
       final r = await api.get('$_p/eu') as Map;
-      final antes = naoLidas;
       _aplicarEu(r.cast<String, dynamic>());
-      if (naoLidas > antes) await aoChegarMensagem?.call(antes, naoLidas);
       notifyListeners();
     } catch (_) {
       // a próxima volta tenta de novo
@@ -526,6 +539,7 @@ class Controle extends ChangeNotifier {
   void _aplicarEu(Map<String, dynamic> r) {
     eu = r;
     naoLidas = (r['nao_lidas'] as num?)?.toInt() ?? 0;
+    alertas.naoPerturbe = ((r['status'] as Map?)?['escolhido'] ?? '') == 'nao_perturbe';
     final m = (r['modo'] ?? 'claro').toString();
     if (m != modo) {
       modo = m == 'escuro' ? 'escuro' : 'claro';

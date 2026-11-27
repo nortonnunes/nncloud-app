@@ -17,12 +17,12 @@ import '../servicos/atualizacao.dart';
 import '../servicos/controle.dart';
 import '../servicos/janela.dart';
 import '../servicos/sistema.dart';
-import '../servicos/som.dart';
 import '../tema.dart';
 import '../widgets/comum.dart';
 import '../widgets/rodape.dart';
 import '../widgets/topo.dart';
 import 'acesso.dart';
+import 'aviso_mensagem.dart';
 import 'avisos.dart';
 import 'conversas/conversas.dart';
 import 'inicio.dart';
@@ -146,11 +146,22 @@ class _CascaState extends State<Casca> {
             ),
           ),
           Expanded(
-            child: IndexedStack(index: aba, children: [
-              TelaInicio(c),
-              TelaConversas(c, ativa: aba == 1),
-              TelaNews(c, ativa: aba == 2),
-              TelaAvisos(c, ativa: aba == 3),
+            child: Stack(children: [
+              Positioned.fill(
+                child: IndexedStack(index: aba, children: [
+                  TelaInicio(c),
+                  TelaConversas(c, ativa: aba == 1),
+                  TelaNews(c, ativa: aba == 2),
+                  TelaAvisos(c, ativa: aba == 3),
+                ]),
+              ),
+              // Mensagem nova com o app na frente, noutra conversa ou aba: o
+              // quadro no canto, logo abaixo do menu.
+              Positioned(
+                top: 14,
+                right: 18,
+                child: QuadrosMensagem(c.alertas, aoAbrir: Casca.abrirConversa),
+              ),
             ]),
           ),
           RodapeApp(c.aparencia),
@@ -709,9 +720,9 @@ class _MenuUsuario extends StatelessWidget {
       position: PopupMenuPosition.under,
       onSelected: (v) async {
         switch (v) {
-          case 'som':
-            Som.ligado = !Som.ligado;
-            c.arm.definir('som_mensagem', Som.ligado);
+          case 'avisos':
+            if (!context.mounted) return;
+            await showDialog<void>(context: context, builder: (_) => DialogoAvisos(c.alertas));
           case 'inicio':
             final ativo = await InicioComSistema.ativo();
             final r = await InicioComSistema.definir(!ativo);
@@ -758,10 +769,13 @@ class _MenuUsuario extends StatelessWidget {
             enabled: false,
             child: Text((eu['email'] ?? '').toString(),
                 style: TextStyle(color: p.muted, fontSize: 12.5))),
-        CheckedPopupMenuItem(
-            value: 'som',
-            checked: Som.ligado,
-            child: const Text('Som de mensagem nova')),
+        const PopupMenuItem(
+            value: 'avisos',
+            child: Row(children: [
+              Icon(Icons.notifications_active_outlined, size: 20),
+              SizedBox(width: 10),
+              Text('Avisos de mensagem nova…'),
+            ])),
         const PopupMenuItem(
             value: 'inicio',
             child: Text('Abrir junto com o computador (liga/desliga)')),
