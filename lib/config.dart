@@ -11,7 +11,7 @@ import 'dart:io';
 /// `X-NN-App-Versao` e que o servidor compara para oferecer a atualização.
 class AppConfig {
   static const String nome = 'NN Conversas';
-  static const String versao = '1.0.0';
+  static const String versao = '1.0.1';
 
   /// O prefixo da API deste app (o regime `conversas` do servidor).
   static const String prefixo = '/v1/conversas';

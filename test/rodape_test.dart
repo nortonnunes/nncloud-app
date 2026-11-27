@@ -35,6 +35,6 @@ void main() {
   });
 
   test('a versão do rodapé é a do app', () {
-    expect(AppConfig.versao, '1.0.0');
+    expect(AppConfig.versao, '1.0.1');
   });
 }

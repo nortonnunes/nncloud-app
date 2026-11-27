@@ -12,7 +12,7 @@
 ; ⚠️ O valor "NN Conversas" da chave Run é o mesmo que o app lê (lib/servicos/sistema.dart).
 
 #ifndef Versao
-  #define Versao "1.0.0"
+  #define Versao "1.0.1"
 #endif
 #ifndef Origem
   #define Origem "..\..\build\windows\x64\runner\Release"

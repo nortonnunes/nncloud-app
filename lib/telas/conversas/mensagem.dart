@@ -1,6 +1,6 @@
 // A bolha da mensagem: texto formatado (as tags que o site permite), menções,
 // links com o aviso de saída, citação, anexos (miniatura → visualizador, áudio
-// tocando na bolha, arquivo para baixar e abrir), enquete, reações, "editada",
+// tocando na bolha, arquivo para baixar e abrir), enquete, reunião do Meet, reações, "editada",
 // "Encaminhada" e os tiques (enviada · entregue · lida).
 import 'dart:async';
 import 'dart:io';
@@ -31,6 +31,7 @@ class AcoesMensagem {
   final void Function(Mensagem m, OpcaoEnquete o) votar;
   final void Function(Mensagem m) encerrarEnquete;
   final void Function(Mensagem m) quemVotou;
+  final void Function(Mensagem m) cancelarReuniao;
   const AcoesMensagem({
     required this.responder,
     required this.reagir,
@@ -41,6 +42,7 @@ class AcoesMensagem {
     required this.votar,
     required this.encerrarEnquete,
     required this.quemVotou,
+    required this.cancelarReuniao,
   });
 }
 
@@ -147,7 +149,9 @@ class _BolhaMensagemState extends State<BolhaMensagem> {
             ]),
           ),
         if (m.resposta != null) _Citacao(m.resposta!, () => widget.acoes.irPara(m.resposta!.id)),
-        if (m.enquete != null)
+        if (m.reuniao != null)
+          CartaoReuniao(m.reuniao!, meuId: widget.meuId, aoCancelar: () => widget.acoes.cancelarReuniao(m))
+        else if (m.enquete != null)
           _EnqueteView(m, widget.meuId, widget.souAdmin, widget.acoes)
         else if (m.corpo.trim().isNotEmpty || m.html != null)
           TextoMensagem(m, busca: widget.busca),
@@ -790,6 +794,178 @@ class _EnqueteView extends StatelessWidget {
           if (!e.encerrada && (e.autorId == meuId || souAdmin)) TextButton(onPressed: () => acoes.encerrarEnquete(m), child: const Text('Encerrar')),
         ]),
       ]),
+    );
+  }
+}
+
+/* ======================== reunião do Google Meet ======================== */
+
+/// O cartão da reunião (na bolha, na lista da conversa e no Início). O estado
+/// ("Agendada" → "Acontecendo agora" → "Encerrada") é recalculado pelo relógio a
+/// cada 30 s. "Entrar" abre o Meet no navegador: o Google não deixa embutir o
+/// vídeo dentro do app.
+class CartaoReuniao extends StatefulWidget {
+  final Reuniao r;
+  final int meuId;
+  final VoidCallback? aoCancelar;
+  final VoidCallback? aoAbrirConversa; // nas "Próximas reuniões": leva à conversa
+  final double largura;
+  const CartaoReuniao(this.r, {super.key, required this.meuId, this.aoCancelar, this.aoAbrirConversa, this.largura = 380});
+
+  @override
+  State<CartaoReuniao> createState() => _CartaoReuniaoState();
+}
+
+const _seloReuniao = {
+  'agora': 'Acontecendo agora',
+  'agendada': 'Agendada',
+  'encerrada': 'Encerrada',
+  'cancelada': 'Cancelada',
+};
+
+/// O verde do "acontecendo agora" — o mesmo do site (`--meet-cor`), escolhido
+/// para o texto branco (claro) e o escuro (escuro) passarem em 4,5:1.
+Color corReuniaoAgora(Brightness b) => b == Brightness.dark ? const Color(0xFF4ADE80) : const Color(0xFF0B7A44);
+
+/// Abre no navegador o link do Meet, da Agenda ou do Perfil do site (só http/https;
+/// o "Entrar" ainda exige o endereço do Meet — `Reuniao.urlOk`).
+Future<void> abrirNoNavegador(String url) async {
+  final u = Uri.tryParse(url);
+  if (u == null || !(u.scheme == 'https' || u.scheme == 'http')) return;
+  await launchUrl(u, mode: LaunchMode.externalApplication);
+}
+
+class _CartaoReuniaoState extends State<CartaoReuniao> {
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && widget.r.estado() != 'cancelada') setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final r = widget.r;
+    final est = r.estado();
+    final vivo = est == 'agora' || est == 'agendada';
+    final verde = corReuniaoAgora(Theme.of(context).brightness);
+    final cor = est == 'agora' ? verde : (vivo ? p.primary : p.muted);
+    final fundoIcone = est == 'agora' ? verde.withValues(alpha: .14) : (vivo ? p.primary.withValues(alpha: .12) : p.surface);
+    final rodape = [
+      if (r.organizador.isNotEmpty) 'Organizada por ${r.organizador}',
+      if (r.convidados > 0) '${r.convidados} ${r.convidados == 1 ? 'convidado' : 'convidados'}',
+    ].join(' · ');
+
+    return Container(
+      width: widget.largura,
+      decoration: BoxDecoration(
+        color: p.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.cardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      // A faixa da esquerda é um FILHO (borda com cores diferentes + borderRadius
+      // é recusada pelo Flutter em execução).
+      child: IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(width: 4, color: vivo ? cor : p.cardBorder),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(11, 10, 12, 9),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(color: fundoIcone, borderRadius: BorderRadius.circular(9)),
+                    child: Icon(Icons.videocam_outlined, size: 19, color: cor),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(
+                        r.titulo,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.5,
+                          decoration: est == 'cancelada' ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      Text(r.quando, style: TextStyle(fontSize: 13, color: p.text, fontFeatures: const [FontFeature.tabularFigures()])),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: vivo ? cor.withValues(alpha: .14) : p.surface, borderRadius: BorderRadius.circular(99)),
+                    child: Text(_seloReuniao[est] ?? '', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: vivo ? cor : p.text)),
+                  ),
+                ]),
+                if (r.descricao.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(r.descricao, style: const TextStyle(fontSize: 13)),
+                ],
+                if ((vivo && (r.urlOk || r.agendaOk || (widget.aoCancelar != null && r.podeCancelarPor(widget.meuId)))) ||
+                    (widget.aoAbrirConversa != null && r.conversa.isNotEmpty)) ...[
+                  const SizedBox(height: 9),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    if (vivo && r.urlOk)
+                      FilledButton.icon(
+                        onPressed: () => abrirNoNavegador(r.url),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: est == 'agora' ? verde : null,
+                          foregroundColor: est == 'agora' ? tintaSobre(verde) : null,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                        label: const Text('Entrar'),
+                      ),
+                    if (vivo && r.agendaOk)
+                      OutlinedButton(
+                        onPressed: () => abrirNoNavegador(r.agendaUrl),
+                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        child: const Text('Ver na Agenda'),
+                      ),
+                    if (vivo && widget.aoCancelar != null && r.podeCancelarPor(widget.meuId))
+                      OutlinedButton(
+                        onPressed: widget.aoCancelar,
+                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        child: const Text('Cancelar reunião'),
+                      ),
+                    if (widget.aoAbrirConversa != null && r.conversa.isNotEmpty)
+                      Tooltip(
+                        message: 'Abrir a conversa',
+                        child: TextButton.icon(
+                          onPressed: widget.aoAbrirConversa,
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                          icon: const Icon(Icons.forum_outlined, size: 16),
+                          label: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 220),
+                            child: Text(r.conversa, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                      ),
+                  ]),
+                ],
+                if (rodape.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(rodape, style: TextStyle(fontSize: 12, color: p.muted)),
+                ],
+              ]),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

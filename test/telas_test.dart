@@ -60,6 +60,7 @@ Map<String, dynamic> _msg(int id, int uid, String nome, String quando,
         bool editada = false,
         bool encaminhada = false,
         Map? poll,
+        Map? meet,
         bool mencionaMim = false}) =>
     {
       'id': id,
@@ -82,7 +83,42 @@ Map<String, dynamic> _msg(int id, int uid, String nome, String quando,
       'mentions': [],
       'mentions_me': mencionaMim,
       'poll': poll,
+      'meet': meet,
     };
+
+/// Reunião do Meet como o servidor manda (`Reunioes::paraTela`). O estado do
+/// cartão sai dos horários: `inicio` em segundos a partir de agora.
+Map<String, dynamic> reuniaoFalsa(int id, String titulo, String quando,
+    {required int inicio,
+    int duracao = 30,
+    int autor = 1,
+    bool podeCancelar = false,
+    String estado = '',
+    String descricao = '',
+    String conversa = '',
+    int conversaId = 5}) {
+  final agora = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+  return {
+    'id': id,
+    'conversation_id': conversaId,
+    'message_id': 200 + id,
+    'titulo': titulo,
+    'descricao': descricao,
+    'quando': quando,
+    'inicio_ts': agora + inicio,
+    'fim_ts': agora + inicio + duracao * 60,
+    'duracao': duracao,
+    'estado': estado.isEmpty ? (inicio <= 300 ? 'agora' : 'agendada') : estado,
+    'url': 'https://meet.google.com/abc-defg-hij',
+    'agenda_url': 'https://www.google.com/calendar/event?eid=ev$id',
+    'organizador': autor == 1 ? 'Ana Lima' : 'Bruno Lima',
+    'autor_id': autor,
+    'agora': inicio <= 0,
+    'convidados': 1,
+    'pode_cancelar': podeCancelar,
+    if (conversa.isNotEmpty) 'conversa': conversa,
+  };
+}
 
 /// O "instalador" que a API falsa entrega (a atualização confere tamanho e SHA-256).
 final instaladorFalso =
@@ -243,6 +279,15 @@ http.Client apiFalsa() {
         encaminhada: true),
     _msg(107, 1, 'Ana Lima', '${_d(hoje)} 10:42',
         mine: true, corpo: 'Combinado, te mando o arquivo'),
+    _msg(108, 2, 'Bruno Lima', '${_d(hoje)} 10:43',
+        corpo: '📹 Alinhamento da carteira Unimed',
+        meet: reuniaoFalsa(2, 'Alinhamento da carteira Unimed', 'Amanhã, 09:00–10:00',
+            inicio: 86400, duracao: 60, autor: 2, descricao: 'Pauta: metas de dezembro')),
+    _msg(109, 1, 'Ana Lima', '${_d(hoje)} 10:44',
+        mine: true,
+        corpo: '📹 Reunião com Bruno Lima',
+        meet: reuniaoFalsa(1, 'Reunião com Bruno Lima', 'Hoje, 10:44–11:14',
+            inicio: -60, podeCancelar: true)),
   ];
   return MockClient((req) async {
     final caminho = req.url.path;
@@ -260,6 +305,14 @@ http.Client apiFalsa() {
           : http.Response.bytes(instaladorFalso, 200);
     }
     if (caminho.endsWith('/chat/conversations')) return json(conversas);
+    if (caminho.endsWith('/chat/meets/proximas')) {
+      return json([
+        reuniaoFalsa(1, 'Reunião com Bruno Lima', 'Hoje, 10:44–11:14',
+            inicio: -60, podeCancelar: true, conversa: 'Bruno Lima'),
+        reuniaoFalsa(3, 'Fechamento do mês', 'Amanhã, 15:00–16:00',
+            inicio: 86400, duracao: 60, autor: 3, conversa: 'Supervisão Turno A', conversaId: 6),
+      ]);
+    }
     if (caminho.endsWith('/chat/conversations/5')) {
       return json({
         'id': 5,

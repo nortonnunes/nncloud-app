@@ -398,6 +398,21 @@ class _ConversaViewState extends State<ConversaView> {
     return '${d.day} de ${meses[d.month - 1]}${d.year != agora.year ? ' de ${d.year}' : ''}';
   }
 
+  /// Criar a reunião do Meet (agora ou agendada); o cartão entra pela consulta.
+  Future<void> _novaReuniao() async {
+    final r = await novaReuniao(context, chat, widget.id, tituloPadrao: _grupo ? 'Reunião — $_titulo' : 'Reunião com $_titulo');
+    if (r == null || !mounted) return;
+    final reu = r.$1;
+    avisar(context, reu != null && reu.agora ? 'Reunião criada — o Meet abriu no navegador.' : 'Reunião agendada.');
+    await _consultar();
+  }
+
+  /// A reunião mudou na lista (cancelada): redesenha o cartão da mensagem.
+  void _reuniaoMudou(Reuniao r) {
+    final i = _msgs.indexWhere((m) => m.reuniao?.id == r.id);
+    if (i >= 0) setState(() => _msgs[i].reuniao = r);
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
@@ -423,6 +438,12 @@ class _ConversaViewState extends State<ConversaView> {
       votar: _votar,
       encerrarEnquete: _encerrarEnquete,
       quemVotou: (m) => quemVotou(context, chat, m.enquete!.id),
+      cancelarReuniao: (m) async {
+        final r = m.reuniao;
+        if (r == null) return;
+        final nova = await cancelarReuniaoConfirmando(context, chat, r);
+        if (nova != null && mounted) setState(() => m.reuniao = nova);
+      },
     );
 
     final cabecalho = _selecionando
@@ -471,6 +492,11 @@ class _ConversaViewState extends State<ConversaView> {
                   }
                 }),
                 icon: Icon(Icons.search_rounded, color: _buscando ? p.primary : null),
+              ),
+              IconButton(
+                tooltip: 'Reuniões da conversa',
+                onPressed: () => listaReunioes(context, chat, widget.id, meuId: widget.c.meuId, aoNova: _novaReuniao, aoMudar: _reuniaoMudou),
+                icon: const Icon(Icons.event_note_outlined),
               ),
               IconButton(
                 tooltip: 'Arquivos da conversa',
@@ -672,6 +698,7 @@ class _ConversaViewState extends State<ConversaView> {
             novaEnquete: () async {
               if (await novaEnquete(context, chat, widget.id)) await _consultar();
             },
+            novaReuniao: _novaReuniao,
             aoEditarUltima: _editarUltima,
           ),
         ]),

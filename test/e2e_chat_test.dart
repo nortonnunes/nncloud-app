@@ -245,4 +245,58 @@ void main() {
       expect(ini['news'], isNull); // a Ana não tem NN News
     }, skip: !_ligado);
   });
+
+  // Reuniões do Google Meet: o Google é o falso da suíte do servidor
+  // (google_falso.php); o `semear_dart.php` conecta a conta da Ana.
+  group('reuniões do Meet', () {
+    late Reuniao criada;
+    String amanha() {
+      final d = DateTime.now().add(const Duration(days: 1));
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    }
+
+    test('status do Google: Ana pode criar, Caio não conectou', () async {
+      expect((await chatAna.statusGoogle())['pode_criar'], isTrue);
+      final st = await chatCaio.statusGoogle();
+      expect(st['conectado'], isFalse);
+      expect(st['conectar_url'], endsWith('/perfil?tab=integracoes'));
+    }, skip: !_ligado);
+
+    test('sem o Google conectado: 428', () async {
+      await expectLater(chatCaio.criarReuniao(direta, agendar: false),
+          throwsA(isA<ApiErro>().having((e) => e.status, 'status', 428)));
+    }, skip: !_ligado);
+
+    test('agendar: a reunião e a mensagem com o cartão', () async {
+      final (r, m) = await chatAna.criarReuniao(direta, agendar: true, titulo: 'Pelo app', data: amanha(), hora: '10:00', duracao: 45, descricao: 'Pauta curta');
+      expect(r, isNotNull);
+      criada = r!;
+      expect(criada.quando, 'Amanhã, 10:00–10:45');
+      expect(criada.estado(), 'agendada');
+      expect(criada.urlOk, isTrue);
+      expect(criada.podeCancelarPor(9301), isTrue);
+      expect(m?.reuniao?.id, criada.id);
+      expect(m?.aindaEditavel, isFalse);
+    }, skip: !_ligado);
+
+    test('o outro lado vê o cartão, sem poder cancelar', () async {
+      final r = await chatCaio.mensagens(direta);
+      final m = (r['messages'] as List).map((x) => Mensagem.de((x as Map).cast<String, dynamic>())).firstWhere((x) => x.reuniao != null);
+      expect(m.reuniao!.titulo, 'Pelo app');
+      expect(m.reuniao!.podeCancelarPor(9303), isFalse);
+      expect((await chatCaio.reunioes(direta)).map((x) => x.id), contains(criada.id));
+      final prox = await chatCaio.proximasReunioes();
+      expect(prox.firstWhere((x) => x.id == criada.id).conversa, isNotEmpty);
+    }, skip: !_ligado);
+
+    test('cancelar: só quem criou; o outro lado recebe pela consulta', () async {
+      await expectLater(chatCaio.cancelarReuniao(criada.id), throwsA(isA<ApiErro>().having((e) => e.status, 'status', 403)));
+      final (r, aviso) = await chatAna.cancelarReuniao(criada.id);
+      expect(r!.estado(), 'cancelada');
+      expect(aviso, isEmpty);
+      final consulta = await chatCaio.mensagens(direta, after: criada.mensagemId);
+      final ed = ((consulta['edited'] as List?) ?? const []).map((x) => Mensagem.de((x as Map).cast<String, dynamic>()));
+      expect(ed.firstWhere((x) => x.id == criada.mensagemId).reuniao!.estado(), 'cancelada');
+    }, skip: !_ligado);
+  });
 }

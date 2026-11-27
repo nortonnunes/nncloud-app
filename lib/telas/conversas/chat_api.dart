@@ -157,6 +157,87 @@ class Enquete {
   }
 }
 
+/// Reunião do Google Meet criada numa conversa (mig. 202): o cartão da mensagem,
+/// a lista da conversa e as "Próximas reuniões" do Início.
+///
+/// ⚠️ O vídeo não abre dentro do app — o Google não deixa embutir o Meet. O
+/// "Entrar" abre o link no navegador.
+class Reuniao {
+  final int id, conversaId, mensagemId, inicioTs, fimTs, duracao, autorId, convidados;
+  final String titulo, descricao, quando, url, agendaUrl, organizador, conversa;
+  final String estadoServidor; // agendada · agora · encerrada · cancelada
+  final bool agora, podeCancelar;
+  const Reuniao({
+    required this.id,
+    required this.conversaId,
+    required this.mensagemId,
+    required this.inicioTs,
+    required this.fimTs,
+    required this.duracao,
+    required this.autorId,
+    required this.convidados,
+    required this.titulo,
+    required this.descricao,
+    required this.quando,
+    required this.url,
+    required this.agendaUrl,
+    required this.organizador,
+    required this.conversa,
+    required this.estadoServidor,
+    required this.agora,
+    required this.podeCancelar,
+  });
+
+  static Reuniao? de(Object? v) {
+    if (v is! Map) return null;
+    final m = v.cast<String, dynamic>();
+    if (_int(m['id']) <= 0) return null;
+    return Reuniao(
+      id: _int(m['id']),
+      conversaId: _int(m['conversation_id']),
+      mensagemId: _int(m['message_id']),
+      inicioTs: _int(m['inicio_ts']),
+      fimTs: _int(m['fim_ts']),
+      duracao: _int(m['duracao']),
+      autorId: _int(m['autor_id']),
+      convidados: _int(m['convidados']),
+      titulo: _str(m['titulo']),
+      descricao: _str(m['descricao']),
+      quando: _str(m['quando']),
+      url: _str(m['url']),
+      agendaUrl: _str(m['agenda_url']),
+      organizador: _str(m['organizador']),
+      conversa: _str(m['conversa']),
+      estadoServidor: _str(m['estado']).isEmpty ? 'agendada' : _str(m['estado']),
+      agora: m['agora'] == true,
+      podeCancelar: m['pode_cancelar'] == true,
+    );
+  }
+
+  /// O estado pelo relógio do computador (o servidor manda os horários): a
+  /// reunião vira "agora" 5 min antes do início e "encerrada" no fim — o cartão
+  /// muda sozinho, sem esperar outra consulta.
+  String estado([DateTime? momento]) {
+    if (estadoServidor == 'cancelada') return 'cancelada';
+    final t = (momento ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
+    if (fimTs > 0 && t >= fimTs) return 'encerrada';
+    return t >= inicioTs - 300 ? 'agora' : 'agendada';
+  }
+
+  bool viva([DateTime? momento]) {
+    final e = estado(momento);
+    return e == 'agora' || e == 'agendada';
+  }
+
+  /// Só o link do Meet (https://meet.google.com/...) vira o botão "Entrar".
+  bool get urlOk => RegExp(r'^https://meet\.google\.com/[A-Za-z0-9_-]+$').hasMatch(url);
+  bool get agendaOk => agendaUrl.startsWith('https://');
+
+  /// Cancelar: quem criou (pelo WebSocket não vem o `pode_cancelar`) ou quem o
+  /// servidor diz que pode (o administrador). O servidor confere de novo.
+  bool podeCancelarPor(int meuId) => podeCancelar || (meuId > 0 && autorId == meuId);
+}
+
 class Resposta {
   final int id;
   final String autor, texto;
@@ -176,6 +257,7 @@ class Mensagem {
   final Resposta? resposta;
   List<Reacao> reacoes;
   Enquete? enquete;
+  Reuniao? reuniao;
   final List<String> mencoes;
 
   Mensagem({
@@ -197,6 +279,7 @@ class Mensagem {
     required this.resposta,
     required this.reacoes,
     required this.enquete,
+    this.reuniao,
     required this.mencoes,
   });
 
@@ -221,6 +304,7 @@ class Mensagem {
       resposta: r is Map ? Resposta(_int(r['id']), _str(r['author']), _str(r['text'])) : null,
       reacoes: Reacao.lista(m['reactions']),
       enquete: Enquete.de(m['poll']),
+      reuniao: Reuniao.de(m['meet']),
       mencoes: _lista(m['mentions']).map((x) => _str(x['name'])).toList(),
     );
   }
@@ -238,7 +322,7 @@ class Mensagem {
   }
 
   /// A janela de edição (15 min), conferida de novo no servidor ao salvar.
-  bool get aindaEditavel => podeEditar && minha && enquete == null && (DateTime.now().millisecondsSinceEpoch ~/ 1000 - ts) < 15 * 60;
+  bool get aindaEditavel => podeEditar && minha && enquete == null && reuniao == null && (DateTime.now().millisecondsSinceEpoch ~/ 1000 - ts) < 15 * 60;
 }
 
 class Participante {
@@ -351,6 +435,49 @@ class ChatApi {
   Future<Enquete?> votar(int pollId, int opcaoId) async => Enquete.de(((await api.post('$_base/poll/vote', {'poll_id': pollId, 'option_id': opcaoId})) as Map)['poll']);
   Future<Enquete?> encerrarEnquete(int pollId) async => Enquete.de(((await api.post('$_base/poll/close', {'poll_id': pollId})) as Map)['poll']);
   Future<Map<String, dynamic>> votos(int pollId) async => ((await api.get('$_base/poll/voters', q: {'poll_id': '$pollId'})) as Map).cast<String, dynamic>();
+
+  /// O Google da pessoa está pronto para criar reuniões? {disponivel, configurado,
+  /// conectado, pode_criar, email, conectar_url}.
+  Future<Map<String, dynamic>> statusGoogle() async => ((await api.get('$_base/meet/google')) as Map).cast<String, dynamic>();
+
+  /// Cria a reunião (agora ou agendada). Devolve a reunião e a mensagem com o
+  /// cartão. 428 = falta conectar o Google (a mensagem diz o que fazer).
+  Future<(Reuniao?, Mensagem?)> criarReuniao(
+    int conversa, {
+    required bool agendar,
+    String titulo = '',
+    String descricao = '',
+    String data = '',
+    String hora = '',
+    int duracao = 0,
+    bool convidar = true,
+  }) async {
+    final r = ((await api.post('$_base/conversations/$conversa/meet', {
+      'modo': agendar ? 'agendar' : 'agora',
+      'titulo': titulo,
+      if (agendar) 'descricao': descricao,
+      if (agendar) 'data': data,
+      if (agendar) 'hora': hora,
+      if (duracao > 0) 'duracao': duracao,
+      'convidar': convidar,
+    })) as Map)
+        .cast<String, dynamic>();
+    final m = r['message'];
+    return (Reuniao.de(r['meet']), m is Map ? Mensagem.de(m.cast<String, dynamic>()) : null);
+  }
+
+  /// Cancela (quem criou ou o administrador). O `aviso` vem quando a conta Google
+  /// de quem criou não está mais conectada (cancelada aqui, não na Agenda).
+  Future<(Reuniao?, String)> cancelarReuniao(int id) async {
+    final r = ((await api.post('$_base/meet/cancel', {'meet_id': id})) as Map).cast<String, dynamic>();
+    return (Reuniao.de(r['meet']), _str(r['aviso']));
+  }
+
+  Future<List<Reuniao>> reunioes(int conversa) async =>
+      _lista(await api.get('$_base/conversations/$conversa/meets')).map(Reuniao.de).whereType<Reuniao>().toList();
+
+  Future<List<Reuniao>> proximasReunioes() async =>
+      _lista(await api.get('$_base/meets/proximas')).map(Reuniao.de).whereType<Reuniao>().toList();
 
   Future<Map<String, dynamic>> socket() async => ((await api.get('$_base/socket')) as Map).cast<String, dynamic>();
   Future<String> socketAuth(String socketId, String canal) async =>

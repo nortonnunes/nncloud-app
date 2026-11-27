@@ -44,6 +44,7 @@ class Compositor extends StatefulWidget {
   final Future<bool> Function(Mensagem m, String corpo, bool html) salvarEdicao;
   final VoidCallback aoDigitar;
   final VoidCallback novaEnquete;
+  final VoidCallback novaReuniao;
   final VoidCallback? aoEditarUltima; // seta para cima com o campo vazio
   const Compositor({
     super.key,
@@ -60,6 +61,7 @@ class Compositor extends StatefulWidget {
     required this.salvarEdicao,
     required this.aoDigitar,
     required this.novaEnquete,
+    required this.novaReuniao,
     this.aoEditarUltima,
   });
 
@@ -432,6 +434,7 @@ class CompositorState extends State<Compositor> {
           _Ferramenta(Icons.emoji_emotions_outlined, 'Emojis', false, () => abrirEmojis(context, (e) => _c.inserir(e))),
           if (ed == null) _Ferramenta(Icons.attach_file_rounded, 'Anexar arquivos (até 10, 15 MB cada)', false, _escolherArquivos),
           if (ed == null && widget.grupo) _Ferramenta(Icons.poll_outlined, 'Nova enquete', false, widget.novaEnquete),
+          if (ed == null) _Ferramenta(Icons.videocam_outlined, 'Reunião do Google Meet', false, widget.novaReuniao),
           const Spacer(),
           Text('Enter envia · Shift+Enter quebra a linha', style: TextStyle(color: pal.muted, fontSize: 11.5)),
         ]),
