@@ -1,4 +1,4 @@
-﻿; Instalador do APP Operação UNIFI para Windows (Inno Setup 6). Até a 1.0.2: "Conecta Callcenter".
+﻿; Instalador do NN Unifi para Windows (Inno Setup 6). Até a 1.0.3: "APP Operação UNIFI"; até a 1.0.2: "Conecta Callcenter".
 ; Gerado por scripts/empacotar-windows.ps1 — não compile à mão sem antes rodar
 ; o `flutter build windows --release` e copiar o runtime do Visual C++ (o script faz).
 ;
@@ -22,21 +22,21 @@
 
 [Setup]
 AppId={{C7A2E4D9-5B13-4F6A-8E27-1D9C3B5A0F64}
-AppName=APP Operação UNIFI
+AppName=NN Unifi
 AppVersion={#Versao}
-AppVerName=APP Operação UNIFI {#Versao}
+AppVerName=NN Unifi {#Versao}
 AppPublisher=Norton Nunes
 AppPublisherURL=https://nnconecta.com
 DefaultDirName={localappdata}\Programs\Conecta Callcenter
-DefaultGroupName=APP Operação UNIFI
+DefaultGroupName=NN Unifi
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\..\build\instaladores
-OutputBaseFilename=APP-Operacao-UNIFI-{#Versao}-Windows
+OutputBaseFilename=NN-Unifi-{#Versao}-Windows
 SetupIconFile=..\..\windows\runner\resources\app_icon.ico
 UninstallDisplayIcon={app}\ConectaCallcenter.exe
-UninstallDisplayName=APP Operação UNIFI
+UninstallDisplayName=NN Unifi
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -52,26 +52,28 @@ Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Criar um atalho na área de trabalho"; GroupDescription: "Atalhos:"
-Name: "iniciar"; Description: "Iniciar o APP Operação UNIFI junto com o Windows (recomendado: os comunicados só chegam com o app aberto)"; GroupDescription: "Inicialização:"
+Name: "iniciar"; Description: "Iniciar o NN Unifi junto com o Windows (recomendado: os comunicados só chegam com o app aberto)"; GroupDescription: "Inicialização:"
 
 [Files]
 Source: "{#Origem}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
-; Os atalhos com o nome antigo (até a 1.0.2) — sem isto ficariam dois no menu Iniciar.
+; Os atalhos com os nomes antigos (até a 1.0.2 e a 1.0.3) — sem isto ficariam dois no menu Iniciar.
 Type: files; Name: "{userprograms}\Conecta Callcenter.lnk"
 Type: files; Name: "{userdesktop}\Conecta Callcenter.lnk"
+Type: files; Name: "{userprograms}\APP Operação UNIFI.lnk"
+Type: files; Name: "{userdesktop}\APP Operação UNIFI.lnk"
 
 [Icons]
-Name: "{userprograms}\APP Operação UNIFI"; Filename: "{app}\ConectaCallcenter.exe"; AppUserModelID: "NortonNunes.NNCallcenter"
-Name: "{userdesktop}\APP Operação UNIFI"; Filename: "{app}\ConectaCallcenter.exe"; AppUserModelID: "NortonNunes.NNCallcenter"; Tasks: desktopicon
+Name: "{userprograms}\NN Unifi"; Filename: "{app}\ConectaCallcenter.exe"; AppUserModelID: "NortonNunes.NNCallcenter"
+Name: "{userdesktop}\NN Unifi"; Filename: "{app}\ConectaCallcenter.exe"; AppUserModelID: "NortonNunes.NNCallcenter"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Conecta Callcenter"; \
   ValueData: """{app}\ConectaCallcenter.exe"" --oculto"; Flags: uninsdeletevalue; Tasks: iniciar
 
 [Run]
-Filename: "{app}\ConectaCallcenter.exe"; Description: "Abrir o APP Operação UNIFI"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ConectaCallcenter.exe"; Description: "Abrir o NN Unifi"; Flags: nowait postinstall skipifsilent
 ; Atualização automática (o app roda este instalador em silêncio depois de sair):
 ; reabre escondido, na bandeja — a linha acima não roda em modo silencioso.
 Filename: "{app}\ConectaCallcenter.exe"; Parameters: "--oculto"; Flags: nowait; Check: WizardSilent

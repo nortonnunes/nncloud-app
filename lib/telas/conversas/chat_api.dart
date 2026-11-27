@@ -59,6 +59,10 @@ class Conversa {
   String? avatar;
   String atualizada;
   StatusContato? status;
+  /// A última mensagem: id e quem escreveu (o autor só vem com não lidas). É por
+  /// eles que o aviso de mensagem nova não se repete. 0/'' com servidor antigo.
+  int ultimoId;
+  String ultimoAutor;
 
   Conversa({
     required this.id,
@@ -71,6 +75,8 @@ class Conversa {
     this.avatar,
     this.atualizada = '',
     this.status,
+    this.ultimoId = 0,
+    this.ultimoAutor = '',
   });
 
   bool get grupo => tipo == 'group';
@@ -86,6 +92,8 @@ class Conversa {
         avatar: (m['avatar'] ?? '').toString().isEmpty ? null : m['avatar'].toString(),
         atualizada: _str(m['updated_at']),
         status: StatusContato.de(m['status']),
+        ultimoId: _int(m['last_id']),
+        ultimoAutor: _str(m['last_author']),
       );
 }
 
@@ -225,6 +233,15 @@ class Mensagem {
     );
   }
 
+  /// O texto curto do aviso de mensagem nova (o quadro no canto do app).
+  String get previa {
+    final t = corpo.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t.isNotEmpty) return t.length > 140 ? '${t.substring(0, 139)}…' : t;
+    if (enquete != null) return '📊 Enquete';
+    if (anexos.isNotEmpty) return anexos.length == 1 ? '📎 ${anexos.first.nome}' : '📎 ${anexos.length} arquivos';
+    return 'Nova mensagem';
+  }
+
   /// Dia da mensagem (para os divisores), pela data que o SERVIDOR formatou —
   /// a mesma que aparece na bolha (regra do site: divisor e hora não se contradizem).
   String get dia {
@@ -281,10 +298,13 @@ class ChatApi {
     return _lista(r).map(Conversa.de).toList();
   }
 
-  Future<Map<String, dynamic>> mensagens(int id, {int after = 0, int before = 0}) async {
+  /// [ler] = false: busca SEM marcar como lida (a conversa está aberta, mas a
+  /// pessoa não está olhando — app minimizado, atrás de outra janela, outra aba).
+  Future<Map<String, dynamic>> mensagens(int id, {int after = 0, int before = 0, bool ler = true}) async {
     final q = <String, String>{};
     if (after > 0) q['after'] = '$after';
     if (before > 0) q['before'] = '$before';
+    if (!ler) q['ler'] = '0';
     final r = await api.get('$_base/conversations/$id', q: q);
     return (r as Map).cast<String, dynamic>();
   }

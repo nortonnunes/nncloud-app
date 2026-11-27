@@ -635,7 +635,7 @@ void main() {
       await t.pump();
       expect(at.versaoNova, '9.9.9');
       expect(at.pronto, isNotNull, reason: at.erro);
-      expect(find.text('Nova versão do APP Operação UNIFI'), findsOneWidget);
+      expect(find.text('Nova versão do NN Unifi'), findsOneWidget);
       expect(find.textContaining('Pronta para instalar'), findsOneWidget);
       await t.pump(const Duration(milliseconds: 400));
       await expectLater(find.byType(MaterialApp),
@@ -654,7 +654,7 @@ void main() {
       // O aviso não volta sozinho para a mesma versão.
       c.notifyListeners();
       await t.pump();
-      expect(find.text('Nova versão do APP Operação UNIFI'), findsNothing);
+      expect(find.text('Nova versão do NN Unifi'), findsNothing);
       await t.pumpWidget(const SizedBox());
       t.view.reset();
     });

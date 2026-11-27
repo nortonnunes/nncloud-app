@@ -110,7 +110,7 @@ class _TelaComputadorState extends State<TelaComputador> {
       corpo = [
         Text('Aguardando a autorização', style: titulo, textAlign: TextAlign.center),
         const SizedBox(height: 10),
-        Text('Peça ao administrador para autorizar este computador em Sistema → APP Operação UNIFI, conferindo o código abaixo.',
+        Text('Peça ao administrador para autorizar este computador em Sistema → NN Unifi, conferindo o código abaixo.',
             textAlign: TextAlign.center, style: TextStyle(color: p.muted, height: 1.45)),
         const SizedBox(height: 22),
         Container(

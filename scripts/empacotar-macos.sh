@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gera o instalador do APP Operação UNIFI (até a 1.0.2: Conecta Callcenter) para macOS (Apple Silicon e Intel):
+# Gera o instalador do NN Unifi (até a 1.0.3: APP Operação UNIFI; até a 1.0.2: Conecta Callcenter) para macOS (Apple Silicon e Intel):
 # build universal, assinatura com o Developer ID deste Mac (runtime endurecido),
 # DMG e — se as credenciais da Apple estiverem no chaveiro — notarização.
 #
@@ -19,9 +19,9 @@ cd "$(dirname "$0")/.."
 VERSAO=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
 APP="build/macos/Build/Products/Release/Conecta Callcenter.app"
 # A pasta no DMG leva o nome que se vê (o executável de dentro continua ASCII).
-NOME_APP="APP Operação UNIFI.app"
+NOME_APP="NN Unifi.app"
 SAIDA="build/instaladores"
-DMG="$SAIDA/APP-Operacao-UNIFI-$VERSAO.dmg"
+DMG="$SAIDA/NN-Unifi-$VERSAO.dmg"
 DIREITOS="macos/Runner/Release.entitlements"
 PERFIL="${PERFIL_NOTARIZACAO:-NNCLOUD}"
 
@@ -59,7 +59,7 @@ TMP=$(mktemp -d)
 cp -R "$APP" "$TMP/$NOME_APP"
 ln -s /Applications "$TMP/Aplicativos"
 rm -f "$DMG"
-hdiutil create -volname "APP Operação UNIFI $VERSAO" -srcfolder "$TMP" -ov -format UDZO "$DMG" >/dev/null
+hdiutil create -volname "NN Unifi $VERSAO" -srcfolder "$TMP" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$TMP"
 codesign --force --timestamp --sign "$IDENTIDADE" "$DMG"
 
@@ -75,4 +75,4 @@ else
 fi
 
 shasum -a 256 "$DMG"
-echo "Pronto: $DMG - publique em Sistema > APP Operação UNIFI > Aplicativo (macOS)."
+echo "Pronto: $DMG - publique em Sistema > NN Unifi > Aplicativo (macOS)."

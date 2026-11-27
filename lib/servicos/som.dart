@@ -7,14 +7,11 @@ import 'package:audioplayers/audioplayers.dart';
 
 class Som {
   static final AudioPlayer _player = AudioPlayer(playerId: 'avisos');
-  static bool ligado = true;
 
   static Future<void> comunicado() => _tocar('som/comunicado.wav');
 
-  static Future<void> mensagem() async {
-    if (!ligado) return;
-    await _tocar('som/mensagem.wav');
-  }
+  /// Quem decide se toca (som ligado, "Não perturbe") é o `Alertas`.
+  static Future<void> mensagem() => _tocar('som/mensagem.wav');
 
   static Future<void> _tocar(String arquivo) async {
     try {

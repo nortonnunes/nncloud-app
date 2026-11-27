@@ -2,13 +2,16 @@
 // lista à esquerda (recolhível, busca sem acento, favoritas no topo com ordem
 // arrastável, arquivadas, não lidas, bolinha de status) e a conversa à direita.
 //
-// ⚠️ A lista é consultada a cada 8 s com a aba aberta (30 s com ela fechada —
+// ⚠️ A lista é consultada a cada 8 s com a aba aberta (15 s com ela fechada —
 // é ela que mantém o contador de não lidas do topo em dia entre as consultas
-// do `/eu`). Ordem dos favoritos: gravada no servidor (`/favorites/order`).
+// do `/eu`, e é comparando uma leitura com a anterior que nascem os avisos de
+// mensagem nova: `DetectorConversas`). Ordem dos favoritos: gravada no servidor
+// (`/favorites/order`).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../servicos/alertas.dart';
 import '../../servicos/controle.dart';
 import '../../tema.dart';
 import '../../widgets/comum.dart';
@@ -40,6 +43,7 @@ class _TelaConversasState extends State<TelaConversas> {
   int? _aberta;
   Timer? _t;
   bool _consultando = false;
+  final _detector = DetectorConversas();
 
   bool get _recolhida => widget.c.arm.pref<bool>('conversas_recolhida', false);
 
@@ -48,6 +52,7 @@ class _TelaConversasState extends State<TelaConversas> {
     super.initState();
     _carregar();
     _agendar();
+    _naTela();
     Casca.conversaPedida.addListener(_pedida);
     WidgetsBinding.instance.addPostFrameCallback((_) => _pedida());
     unawaited(tempo.iniciar());
@@ -59,12 +64,14 @@ class _TelaConversasState extends State<TelaConversas> {
     if (widget.ativa != old.ativa) {
       if (widget.ativa) _carregar();
       _agendar();
+      _naTela();
     }
   }
 
   @override
   void dispose() {
     _t?.cancel();
+    if (widget.c.alertas.conversaNaTela == _aberta) widget.c.alertas.conversaNaTela = null;
     Casca.conversaPedida.removeListener(_pedida);
     tempo.encerrar();
     super.dispose();
@@ -72,8 +79,11 @@ class _TelaConversasState extends State<TelaConversas> {
 
   void _agendar() {
     _t?.cancel();
-    _t = Timer.periodic(widget.ativa ? const Duration(seconds: 8) : const Duration(seconds: 30), (_) => _carregar());
+    _t = Timer.periodic(widget.ativa ? const Duration(seconds: 8) : const Duration(seconds: 15), (_) => _carregar());
   }
+
+  /// Qual conversa está NA TELA agora (a aberta, com a aba Conversas à vista).
+  void _naTela() => widget.c.alertas.conversaNaTela = widget.ativa ? _aberta : null;
 
   void _pedida() {
     final id = Casca.conversaPedida.value;
@@ -95,8 +105,28 @@ class _TelaConversasState extends State<TelaConversas> {
         _carregou = true;
         _erro = null;
       });
-      // A conversa aberta não conta como não lida (o servidor marca ao consultar).
-      final total = l.fold<int>(0, (s, c) => s + (c.id == _aberta && widget.ativa ? 0 : c.naoLidas));
+      // Mensagem nova: compara com a leitura anterior e avisa (o `Alertas` decide
+      // como — e não avisa a conversa que a pessoa está lendo).
+      final al = widget.c.alertas;
+      for (final a in _detector.comparar([
+        for (final c in l)
+          ConversaLida(
+            id: c.id,
+            naoLidas: c.naoLidas,
+            ultimoId: c.ultimoId,
+            titulo: c.titulo,
+            grupo: c.grupo,
+            autor: c.ultimoAutor,
+            previa: c.previa,
+            avatar: c.avatar,
+          ),
+      ])) {
+        al.chegou(a);
+      }
+      // A conversa que a pessoa está lendo não conta como não lida (o servidor
+      // marca ao consultar). Aberta, mas sem ninguém olhando, conta: é ela que
+      // acende a bolinha com o app minimizado.
+      final total = l.fold<int>(0, (s, c) => s + (al.olhando(c.id) ? 0 : c.naoLidas));
       widget.c.definirNaoLidas(total);
     } catch (e) {
       if (mounted && !_carregou) setState(() => _erro = erroChat(e));
@@ -107,6 +137,8 @@ class _TelaConversasState extends State<TelaConversas> {
 
   void _abrir(int id) {
     setState(() => _aberta = id);
+    _naTela();
+    widget.c.alertas.abriu(id);
     final i = _lista.indexWhere((c) => c.id == id);
     if (i >= 0 && _lista[i].naoLidas > 0) {
       setState(() => _lista[i].naoLidas = 0);
@@ -129,7 +161,10 @@ class _TelaConversasState extends State<TelaConversas> {
       final a = await chat.arquivar(c.id);
       if (!mounted) return;
       avisar(context, a ? 'Conversa arquivada. Ela volta sozinha quando chegar mensagem nova.' : 'Conversa de volta à lista.');
-      if (a && _aberta == c.id) setState(() => _aberta = null);
+      if (a && _aberta == c.id) {
+        setState(() => _aberta = null);
+        _naTela();
+      }
       if (_verArquivadas) _arquivadas = await chat.conversas(arquivadas: true);
       await _carregar();
     } catch (e) {
@@ -297,6 +332,7 @@ class _TelaConversasState extends State<TelaConversas> {
                 aoMudar: () => unawaited(_carregar()),
                 aoSair: () {
                   setState(() => _aberta = null);
+                  _naTela();
                   unawaited(tempo.ouvir(null));
                   unawaited(_carregar());
                 },

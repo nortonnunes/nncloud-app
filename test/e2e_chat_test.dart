@@ -151,4 +151,22 @@ void main() {
     expect(fav, isTrue);
     await chatUm.ordemFavoritos([direta]);
   }, skip: !_ligado);
+
+  test('aviso de mensagem nova: a lista diz quem escreveu, e ler=0 não marca como lida', () async {
+    final antes = (await chatUm.conversas()).firstWhere((c) => c.id == direta);
+    final m = await chatDois.enviar(direta, corpo: 'chegou agora', html: false);
+    var c = (await chatUm.conversas()).firstWhere((c) => c.id == direta);
+    expect(c.naoLidas, antes.naoLidas + 1);
+    expect(c.ultimoId, m.id);
+    expect(c.ultimoAutor, 'Tel Dois');
+    // A conversa aberta com o app minimizado: busca, mas não marca.
+    final r = await chatUm.mensagens(direta, after: m.id - 1, ler: false);
+    expect((r['messages'] as List).map((x) => (x as Map)['id']), contains(m.id));
+    c = (await chatUm.conversas()).firstWhere((c) => c.id == direta);
+    expect(c.naoLidas, antes.naoLidas + 1, reason: 'ninguém leu');
+    // Voltou a olhar: a consulta comum marca.
+    await chatUm.mensagens(direta, after: m.id);
+    c = (await chatUm.conversas()).firstWhere((c) => c.id == direta);
+    expect(c.naoLidas, 0);
+  }, skip: !_ligado);
 }

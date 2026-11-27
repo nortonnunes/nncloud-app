@@ -31,7 +31,7 @@ class Notificacoes {
     try {
       await _plugin.initialize(
         InitializationSettings(
-          macOS: const DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: false, requestSoundPermission: false),
+          macOS: const DarwinInitializationSettings(requestAlertPermission: true, requestBadgePermission: true, requestSoundPermission: false),
           windows: WindowsInitializationSettings(appName: AppConfig.nome, appUserModelId: appUserModelId, guid: _guid),
           linux: const LinuxInitializationSettings(defaultActionName: 'Abrir o ${AppConfig.nome}'),
         ),

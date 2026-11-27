@@ -4,12 +4,19 @@
 //
 // A lista é INVERTIDA (a mais nova embaixo, índice 0): mensagem nova entra no
 // fim sem pular a tela, e as antigas entram no topo ao rolar para cima.
+//
+// ⚠️ A conversa continua aberta com o app minimizado, atrás de outra janela ou
+// noutra aba — e aí ninguém está lendo. Nesses casos a consulta vai com `ler=0`
+// (o servidor não marca como lida: quem escreveu não vê "lida" à toa, e a
+// mensagem conta nas não lidas e acende a bolinha) e o que chega vira aviso.
+// Quando a pessoa volta a olhar, uma consulta na hora marca como lida.
 import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
+import '../../servicos/alertas.dart';
 import '../../servicos/controle.dart';
 import '../../tema.dart';
 import '../../widgets/comum.dart';
@@ -84,9 +91,25 @@ class _ConversaViewState extends State<ConversaView> {
 
   void _ouvinte(String _) => _consultar();
 
+  bool get _olhando => widget.c.alertas.olhando(widget.id);
+  bool _olhava = true;
+
+  /// A pessoa voltou a olhar para esta conversa: consulta já (o servidor marca
+  /// como lida) e a lista tira as não lidas dela.
+  void _atencao() {
+    final agora = _olhando;
+    if (agora == _olhava) return;
+    _olhava = agora;
+    // Fora do build de quem avisou (o aviso pode sair no meio de um build).
+    _tPoll?.cancel();
+    _tPoll = Timer(agora ? const Duration(milliseconds: 250) : const Duration(seconds: 15), _consultar);
+  }
+
   @override
   void initState() {
     super.initState();
+    _olhava = _olhando;
+    widget.c.alertas.addListener(_atencao);
     _titulo = widget.resumo?.titulo ?? '';
     _tipo = widget.resumo?.tipo ?? 'direct';
     _avatar = widget.resumo?.avatar;
@@ -99,6 +122,7 @@ class _ConversaViewState extends State<ConversaView> {
   @override
   void dispose() {
     _tPoll?.cancel();
+    widget.c.alertas.removeListener(_atencao);
     // ⚠️ Só limpa se ainda for o desta conversa: ao trocar de conversa a nova
     // nasce ANTES de esta ser descartada.
     if (widget.tempoReal.aoEvento == _ouvinte) widget.tempoReal.aoEvento = null;
@@ -111,7 +135,7 @@ class _ConversaViewState extends State<ConversaView> {
 
   Future<void> _carregar() async {
     try {
-      final r = await chat.mensagens(widget.id);
+      final r = await chat.mensagens(widget.id, ler: _olhando);
       if (!mounted) return;
       final lista = ((r['messages'] as List?) ?? const []).whereType<Map>().map((m) => Mensagem.de(m.cast<String, dynamic>())).toList();
       setState(() {
@@ -146,7 +170,9 @@ class _ConversaViewState extends State<ConversaView> {
   void _agendar() {
     _tPoll?.cancel();
     if (!mounted) return;
-    final t = widget.tempoReal.conectado ? const Duration(seconds: 15) : const Duration(seconds: 4);
+    // Ninguém olhando: devagar (a lista também consulta, e ela é que avisa a
+    // maior parte das vezes).
+    final t = widget.tempoReal.conectado || !_olhando ? const Duration(seconds: 15) : const Duration(seconds: 4);
     _tPoll = Timer(t, _consultar);
   }
 
@@ -158,7 +184,8 @@ class _ConversaViewState extends State<ConversaView> {
     }
     _consultando = true;
     try {
-      final r = await chat.mensagens(widget.id, after: _ultimo);
+      final ler = _olhando;
+      final r = await chat.mensagens(widget.id, after: _ultimo, ler: ler);
       if (!mounted) return;
       final novas = ((r['messages'] as List?) ?? const []).whereType<Map>().map((m) => Mensagem.de(m.cast<String, dynamic>())).toList();
       final editadas = ((r['edited'] as List?) ?? const []).whereType<Map>().map((m) => Mensagem.de(m.cast<String, dynamic>())).toList();
@@ -184,7 +211,24 @@ class _ConversaViewState extends State<ConversaView> {
         _digitando = ((r['typing'] as List?) ?? const []).map((e) => '$e').toList();
         if (chegou > 0 && _scroll.hasClients && _scroll.offset > 160) _novasAbaixo += chegou;
       });
-      if (chegou > 0) widget.aoMudar();
+      if (chegou > 0) {
+        // Ninguém lendo: aviso (o `Alertas` não repete o que a lista já avisou).
+        final dos = novas.where((m) => !m.minha).toList();
+        if (!ler && dos.isNotEmpty) {
+          final u = dos.last;
+          widget.c.alertas.chegou(AvisoMensagem(
+            conversa: widget.id,
+            titulo: _titulo,
+            grupo: _grupo,
+            autor: u.autor,
+            previa: u.previa,
+            avatar: _grupo ? _avatar : (u.avatar ?? _avatar),
+            quantas: dos.length,
+            ultimoId: u.id,
+          ));
+        }
+        widget.aoMudar();
+      }
     } catch (_) {
       // sem rede: a próxima volta tenta
     } finally {

@@ -90,7 +90,7 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "Norton Nunes" "\0"
-            VALUE "FileDescription", "APP Operação UNIFI" "\0"
+            VALUE "FileDescription", "NN Unifi" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ConectaCallcenter" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 Norton Nunes. Todos os direitos reservados." "\0"

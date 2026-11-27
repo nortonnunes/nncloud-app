@@ -76,7 +76,7 @@ String nomeInstalador(String nome, String so, String versao) {
       .replaceAll(RegExp(r'[^A-Za-z0-9._ -]'), '')
       .trim();
   if (n.isEmpty || n.startsWith('.')) {
-    n = 'APP-Operacao-UNIFI-${versao.replaceAll(RegExp(r'[^0-9A-Za-z.+-]'), '')}$ext';
+    n = 'NN-Unifi-${versao.replaceAll(RegExp(r'[^0-9A-Za-z.+-]'), '')}$ext';
   }
   if (ext.isNotEmpty && !n.toLowerCase().endsWith(ext)) n = '$n$ext';
   return n;
@@ -130,7 +130,7 @@ List<String> comandoWindows(
 // macOS
 // ===================================================================
 
-/// O .app de um executável de macOS (".../APP Operação UNIFI.app/Contents/MacOS/Conecta Callcenter").
+/// O .app de um executável de macOS (".../NN Unifi.app/Contents/MacOS/Conecta Callcenter").
 String? bundleDoExecutavel(String exe) {
   final i = exe.indexOf('.app/Contents/MacOS/');
   return i < 0 ? null : exe.substring(0, i + 4);
@@ -172,7 +172,7 @@ String scriptTrocaMac(
         required String log,
         String abrir = 'open'}) =>
     '''#!/bin/bash
-# APP Operação UNIFI: troca o aplicativo pela versão nova DEPOIS que a antiga sair.
+# NN Unifi: troca o aplicativo pela versão nova DEPOIS que a antiga sair.
 APP=${_aspasSh(app)}
 NOVO=${_aspasSh(novo)}
 VELHO=${_aspasSh(antigo)}

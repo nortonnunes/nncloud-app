@@ -1,14 +1,16 @@
 // Application-level settings for the Runner target.
 
-// ⚠️ PRODUCT_NAME é o nome do EXECUTÁVEL e fica em ASCII: com "APP Operação UNIFI"
-// a assinatura do próprio Xcode recusa o binário ("code object is not signed at all").
+// ⚠️ PRODUCT_NAME é o nome do EXECUTÁVEL e NÃO muda com o nome do app: é um nome
+// interno (como a pasta de dados e o bundle id). Com acento ("APP Operação UNIFI",
+// o nome da 1.0.3) a assinatura do próprio Xcode recusava o binário ("code object
+// is not signed at all").
 PRODUCT_NAME = Conecta Callcenter
 
 // O nome que se VÊ (barra de menus, Dock, Cmd-Tab): Info.plist → CFBundleName e
-// CFBundleDisplayName. A PASTA "APP Operação UNIFI.app" sai do DMG
+// CFBundleDisplayName. A PASTA "NN Unifi.app" sai do DMG
 // (scripts/empacotar-macos.sh); quem atualiza pelo app mantém a pasta que já tinha
 // (a troca é feita no MESMO caminho) — a assinatura não depende do nome da pasta.
-CALLCENTER_NOME = APP Operação UNIFI
+CALLCENTER_NOME = NN Unifi
 
 // ⚠️ O bundle id é conferido pela atualização automática: a versão nova só
 // entra no lugar da antiga se tiver o MESMO id e o MESMO time (52YUD97UMR).

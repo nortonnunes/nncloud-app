@@ -58,14 +58,20 @@ Future<void> main(List<String> args) async {
 
   final notif = Notificacoes();
   final c = Controle(arm)..janelaVisivel = !oculto;
-  await notif.iniciar(aoTocar: (payload) async {
+  c.alertas.janelaEmFoco = !oculto;
+  // ⚠️ Sem `await`: na primeira abertura o macOS pergunta se o app pode mandar
+  // notificações, e o plugin só responde DEPOIS que a pessoa clica. Esperando, a
+  // janela ficaria em branco até a resposta. Antes de pronto, `mostrar` só não mostra.
+  unawaited(notif.iniciar(aoTocar: (payload) async {
     await Janela.telaCheia();
     c.janelaVisivel = true;
     if (payload != null && payload.startsWith('conversa:')) {
       Casca.abrirConversa(int.tryParse(payload.substring(9)) ?? 0);
     }
-  });
-  Som.ligado = arm.pref<bool>('som_mensagem', true);
+  }));
+  // Mensagem nova: o `Alertas` decide (quadro no canto, notificação, som).
+  c.alertas.tocarSom = Som.mensagem;
+  c.alertas.mostrarNotificacao = (a) => notif.mostrar(a.tituloNotificacao, a.textoNotificacao, payload: 'conversa:${a.conversa}');
 
   c.aoChegarComunicado = (novos) async {
     await Janela.chamarAtencao();
@@ -74,12 +80,6 @@ Future<void> main(List<String> args) async {
     final t = novos.length == 1 ? (novos.first['titulo'] ?? 'Comunicado').toString() : '${novos.length} comunicados novos';
     await notif.mostrar('Comunicado', t, payload: 'comunicado');
   };
-  c.aoChegarMensagem = (antes, agora) async {
-    if (c.janelaVisivel && !Janela.naBandeja) return;
-    unawaited(Som.mensagem());
-    final n = agora - antes;
-    await notif.mostrar('Conversas', n == 1 ? 'Você recebeu uma nova mensagem' : 'Você recebeu $n novas mensagens', payload: 'conversas');
-  };
 
   final atualizador = Atualizador(c, arm, notif);
   runApp(AppCallcenter(c, atualizador));
@@ -87,6 +87,13 @@ Future<void> main(List<String> args) async {
     await Bandeja(c).iniciar();
   } catch (e) {
     debugPrint('Bandeja indisponível: $e');
+  }
+  // A janela pode abrir sem foco (outro programa na frente): aí mensagem nova
+  // vira notificação, e a conversa aberta não marca como lida.
+  if (!oculto) {
+    try {
+      c.alertas.janelaEmFoco = await windowManager.isFocused();
+    } catch (_) {}
   }
   await c.iniciar();
   atualizador.iniciar();
@@ -100,11 +107,12 @@ class AppCallcenter extends StatefulWidget {
   State<AppCallcenter> createState() => _AppCallcenterState();
 }
 
-class _AppCallcenterState extends State<AppCallcenter> with WindowListener {
+class _AppCallcenterState extends State<AppCallcenter> with WindowListener, WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    WidgetsBinding.instance.addObserver(this);
     widget.c.aoMudarVisual = () {
       if (mounted) setState(() {});
     };
@@ -113,11 +121,13 @@ class _AppCallcenterState extends State<AppCallcenter> with WindowListener {
   @override
   void dispose() {
     windowManager.removeListener(this);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   Future<void> _bandeja() async {
     widget.c.janelaVisivel = false;
+    widget.c.alertas.janelaEmFoco = false;
     await Janela.paraBandeja();
     // Versão nova já baixada e conferida: a hora de trocar é quando ninguém está olhando.
     await widget.atualizador.talvezInstalar();
@@ -142,7 +152,24 @@ class _AppCallcenterState extends State<AppCallcenter> with WindowListener {
   void onWindowFocus() {
     final voltou = !widget.c.janelaVisivel;
     widget.c.janelaVisivel = true;
+    widget.c.alertas.janelaEmFoco = true;
     if (voltou) widget.c.acordou();
+  }
+
+  // Atrás de outra janela: a pessoa não está olhando (mensagem nova vira
+  // notificação, e a conversa aberta deixa de marcar como lida).
+  @override
+  void onWindowBlur() => widget.c.alertas.janelaEmFoco = false;
+
+  // O mesmo pelo estado do app (no Linux o gerenciador de janelas não avisa o
+  // foco; o Flutter avisa nos três sistemas).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) {
+      if (widget.c.janelaVisivel && !Janela.naBandeja) widget.c.alertas.janelaEmFoco = true;
+    } else {
+      widget.c.alertas.janelaEmFoco = false;
+    }
   }
 
   @override
@@ -202,7 +229,14 @@ class Bandeja with TrayListener {
   Future<void> _icone() async {
     final est = (c.naoLidas + c.comunicados.length) > 0 ? 'msg' : 'ok';
     if (Platform.isMacOS) {
-      await trayManager.setIcon('assets/bandeja/mac_$est.png', isTemplate: true);
+      // Sem novidade: o balão em silhueta, que acompanha a barra de menus clara ou
+      // escura (template). Com mensagem: o balão COLORIDO com a bolinha VERMELHA —
+      // uma imagem template sai numa cor só, e a bolinha não chamaria atenção.
+      await trayManager.setIcon('assets/bandeja/mac_$est.png', isTemplate: est == 'ok');
+      // O número em vermelho no ícone do Dock (quando a janela está aberta).
+      try {
+        await windowManager.setBadgeLabel(c.naoLidas > 0 ? (c.naoLidas > 99 ? '99+' : '${c.naoLidas}') : '');
+      } catch (_) {}
     } else if (Platform.isLinux) {
       await trayManager.setIcon('assets/bandeja/lin_$est.png');
     } else {

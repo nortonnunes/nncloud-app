@@ -1,4 +1,4 @@
-# APP Operação UNIFI (até a 1.0.2: Conecta Callcenter)
+# NN Unifi (até a 1.0.3: APP Operação UNIFI; até a 1.0.2: Conecta Callcenter)
 
 O app de computador do Tele Atendimento do NN Conecta (Flutter desktop: Windows, macOS
 Apple Silicon/Intel e Linux). Abre numa dashboard (NN News, Quadro de avisos,
@@ -7,7 +7,7 @@ com alerta, fica **sempre em tela cheia** e, ao minimizar, vai para o ícone ao 
 O topo (logo, cores, tema sazonal, degradê da barra) vem do NN Conecta.
 
 Só **tele atendentes** entram, com e-mail e senha, num **computador autorizado** (o app mostra
-um código na primeira abertura e o administrador aprova em Sistema → APP Operação UNIFI), e só
+um código na primeira abertura e o administrador aprova em Sistema → NN Unifi), e só
 a partir dos **IPs liberados** lá. A API é `/v1/callapp/*` (regime `callapp` do servidor).
 
 ## Desenvolvimento
@@ -43,8 +43,8 @@ flutter run -d macos --dart-define=CALLAPP_TESTE=true --dart-define=CALLAPP_API=
 
 | Sistema | Como | Sai em |
 |---|---|---|
-| macOS | `CALLAPP_API=https://… scripts/empacotar-macos.sh` (neste Mac: Developer ID + notarização pelo perfil `NNCLOUD`) | `build/instaladores/APP-Operacao-UNIFI-<v>.dmg` |
-| Windows | `git tag -a callcenter-v<versão> && git push origin callcenter callcenter-v<versão>` (roda Windows e Linux no GitHub), ou `scripts\empacotar-windows.ps1` num PC com Windows | `APP-Operacao-UNIFI-<v>-Windows.exe` (em Actions → Artifacts) |
+| macOS | `CALLAPP_API=https://… scripts/empacotar-macos.sh` (neste Mac: Developer ID + notarização pelo perfil `NNCLOUD`) | `build/instaladores/NN-Unifi-<v>.dmg` |
+| Windows | `git tag -a callcenter-v<versão> && git push origin callcenter callcenter-v<versão>` (roda Windows e Linux no GitHub), ou `scripts\empacotar-windows.ps1` num PC com Windows | `NN-Unifi-<v>-Windows.exe` (em Actions → Artifacts) |
 | Linux | a mesma tag (ou `scripts/empacotar-linux.sh` no Ubuntu 22.04) | `conecta-callcenter_<v>_amd64.deb` |
 
 O código mora no **repositório do NN Cloud** (`nortonnunes/nncloud-app`), na **branch `callcenter`**
@@ -52,7 +52,7 @@ O código mora no **repositório do NN Cloud** (`nortonnunes/nncloud-app`), na *
 do repositório inteiro, e os workflows (`callcenter-windows.yml`, `callcenter-linux.yml`) têm nome de
 arquivo próprio — o GitHub agrupa as execuções pelo caminho do arquivo.
 
-Publique cada instalador em **Sistema → APP Operação UNIFI → Aplicativo**, com a versão. Os
+Publique cada instalador em **Sistema → NN Unifi → Aplicativo**, com a versão. Os
 computadores com o app aberto baixam sozinhos, conferem e instalam quando a janela vai para a bandeja.
 
 ⚠️ Não mude: o bundle id `br.com.nortonnunes.callcenter` (macOS), o time `52YUD97UMR`, o `AppId`
