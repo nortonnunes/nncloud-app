@@ -1,0 +1,18 @@
+// Application-level settings for the Runner target.
+
+// ⚠️ PRODUCT_NAME é o nome do EXECUTÁVEL e fica em ASCII (acento no nome do
+// executável faz a assinatura do próprio Xcode recusar o binário). "NN Conversas"
+// já é ASCII, então executável, pasta e nome visível coincidem.
+PRODUCT_NAME = NN Conversas
+
+// O nome que se VÊ (barra de menus, Dock, Cmd-Tab): Info.plist → CFBundleName e
+// CFBundleDisplayName.
+CONVERSAS_NOME = NN Conversas
+
+// ⚠️ O bundle id é conferido pela atualização automática: a versão nova só
+// entra no lugar da antiga se tiver o MESMO id e o MESMO time (52YUD97UMR).
+// Não muda depois da primeira versão (o chaveiro e o "iniciar com o macOS" são dele).
+CONVERSAS_ID = br.com.nortonnunes.conversas
+PRODUCT_BUNDLE_IDENTIFIER = $(CONVERSAS_ID)
+
+PRODUCT_COPYRIGHT = Copyright © 2026 Norton Nunes. Todos os direitos reservados.

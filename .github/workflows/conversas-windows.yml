@@ -1,0 +1,49 @@
+# Gera o instalador do NN Conversas para Windows numa máquina Windows do GitHub.
+# Dispara com a tag de versão (abaixo). O .exe sai em "Artifacts", no fim da execução.
+# (O botão "Run workflow" só aparece para workflows da branch principal — a deste é
+# a branch "conversas" do repositório do NN Cloud, então o caminho é a tag.)
+name: NN Conversas — Instalador Windows
+
+on:
+  # Tag de versão (git push origin conversas-v1.2.3) gera o instalador sozinho, com a API padrão.
+  # ⚠️ Prefixo "conversas-": este código vive no repositório do NN Cloud (branch conversas),
+  # e as tags são do repositório inteiro — "v1.2.3" colidiria com as do NN Cloud.
+  push:
+    tags: ['conversas-v*']
+  workflow_dispatch:
+    inputs:
+      api:
+        description: 'Endereço da API do NN Conecta (https)'
+        required: false
+        default: ''
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+
+      - name: Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Dependências e testes
+        run: |
+          flutter pub get
+          flutter test test/formato_test.dart
+
+      - name: Gerar o instalador
+        env:
+          CONVERSAS_API: ${{ inputs.api }}
+        run: powershell -ExecutionPolicy Bypass -File scripts\empacotar-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NN-Conversas-Windows
+          path: build/instaladores/*.exe
+          if-no-files-found: error

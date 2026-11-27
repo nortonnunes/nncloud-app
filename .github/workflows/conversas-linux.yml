@@ -1,0 +1,55 @@
+# Gera o NN Conversas para Linux (.deb) numa máquina Ubuntu do GitHub.
+# Dispara com a tag de versão (abaixo). O .deb sai em "Artifacts".
+# ⚠️ ubuntu-22.04 e não "latest": o binário depende da glibc de onde foi compilado.
+name: NN Conversas — Instalador Linux
+
+on:
+  # Tag de versão (git push origin conversas-v1.2.3) gera o instalador sozinho, com a API padrão.
+  # ⚠️ Prefixo "conversas-": este código vive no repositório do NN Cloud (branch conversas),
+  # e as tags são do repositório inteiro — "v1.2.3" colidiria com as do NN Cloud.
+  push:
+    tags: ['conversas-v*']
+  workflow_dispatch:
+    inputs:
+      api:
+        description: 'Endereço da API do NN Conecta (https)'
+        required: false
+        default: ''
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bibliotecas de compilação
+        run: |
+          sudo apt-get update
+          # ⚠️ O runner já traz o libunwind-14-dev (do LLVM), que conflita com o
+          # libunwind-dev que o libgstreamer1.0-dev exige — o apt sai com 100.
+          sudo apt-get remove -y libunwind-14-dev || true
+          sudo apt-get install -y libunwind-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev \
+            libstdc++-12-dev libsecret-1-dev libjsoncpp-dev libayatana-appindicator3-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev dpkg-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.6
+          channel: stable
+
+      - name: Dependências e testes
+        run: |
+          flutter pub get
+          flutter test test/formato_test.dart
+
+      - name: Gerar o pacote
+        env:
+          CONVERSAS_API: ${{ inputs.api }}
+        run: bash scripts/empacotar-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NN-Conversas-Linux
+          path: build/instaladores/*.deb
+          if-no-files-found: error
